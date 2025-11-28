@@ -1,19 +1,18 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <title>Карта</title>
+  <meta charset="UTF-8" />
+  <title>Курсовая — кот и карта</title>
   <style>
     body {
       margin: 0;
       background: #111;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      color: #eee;
+      font-family: sans-serif;
     }
-    canvas {
-      border: 1px solid #555;
+    #game {
+      display: block;
+      margin: 0 auto;
       background: #000;
     }
   </style>
@@ -21,29 +20,7 @@
 <body>
   <canvas id="game" width="960" height="960"></canvas>
 
-  <script type="module">
-    import { mapManager } from './mapManager.js';
-
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-
-    // создаём экземпляр
-    const mm = new mapManager();
-
-    // задаём видимую область = размер холста
-    mm.view = {
-      x: 0,
-      y: 0,
-      w: canvas.width,
-      h: canvas.height,
-    };
-
-    // грузим уровень 1
-    mm.loadMap('level1.json');
-    //mm.loadMap('level2.json');
-
-    // запускаем отрисовку (внутри сам подождёт, пока загрузится)
-    mm.draw(ctx);
-  </script>
+  <!-- Точка входа уровня -->
+  <script type="module" src="./level1.js"></script>
 </body>
 </html>
