@@ -1,7 +1,12 @@
+// managers/spriteManager.js
 export class SpriteManager {
   constructor() {
-    this.image = new Image()
+    this.mapManager = null
+
+    // все спрайты из всех атласов
+    // каждый спрайт знает, из какой картинки его рисовать
     this.sprites = []
+
     this.imgLoaded = false
     this.jsonLoaded = false
   }
@@ -10,47 +15,58 @@ export class SpriteManager {
     this.mapManager = mapManager
   }
 
+  // можно вызывать несколько раз для разных атласов:
+  //  - cat_ginger_atlas.json / .png
+  //  - objects_atlas.json / .png (ключ, торт, монстры)
   loadAtlas(atlasJson, atlasImg) {
+    const img = new Image()
+    img.src = atlasImg
+    img.onload = () => {
+      this.imgLoaded = true
+      console.log('SpriteManager: картинка атласа загружена', atlasImg)
+    }
+
     fetch(atlasJson)
       .then((res) => res.json())
       .then((data) => {
-        this.sprites = []
+        const spritesToAdd = []
 
         if (Array.isArray(data)) {
+          // формат: [ { name, x, y, w, h }, ... ]
           for (const sprite of data) {
-            this.sprites.push({
+            spritesToAdd.push({
               name: sprite.name,
               x: sprite.x,
               y: sprite.y,
               w: sprite.w ?? sprite.width,
               h: sprite.h ?? sprite.height,
+              img, // ссылка на конкретную картинку
             })
           }
         } else {
+          // формат aseprite / texturepacker: frames: { "name.png": { frame:{x,y,w,h} } }
           const frames = data.frames || data
           for (const [rawName, frameData] of Object.entries(frames)) {
             const f = frameData.frame || frameData
             const name = rawName.replace(/\.(png|aseprite)$/i, '')
-            this.sprites.push({
+            spritesToAdd.push({
               name,
               x: f.x,
               y: f.y,
               w: f.w ?? f.width,
               h: f.h ?? f.height,
+              img,
             })
           }
         }
 
+        // важно: ДОБАВЛЯЕМ, а не перетираем —
+        // так можно грузить несколько атласов
+        this.sprites.push(...spritesToAdd)
+
         this.jsonLoaded = true
         console.log('SpriteManager: загружено спрайтов', this.sprites.length)
       })
-
-    this.image = new Image()
-    this.image.src = atlasImg
-    this.image.onload = () => {
-      this.imgLoaded = true
-      console.log('SpriteManager: картинка атласа загружена')
-    }
   }
 
   getSprite = (name) => {
@@ -58,12 +74,13 @@ export class SpriteManager {
   }
 
   drawSprite = (ctx, name, x, y) => {
-    if (!this.imgLoaded || !this.jsonLoaded) return
+    if (!this.jsonLoaded || !this.sprites.length) return
+
     const sprite = this.getSprite(name)
-    if (!sprite) return
+    if (!sprite || !sprite.img) return
 
     ctx.drawImage(
-      this.image,
+      sprite.img,
       sprite.x,
       sprite.y,
       sprite.w,
