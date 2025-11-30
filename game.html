@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cat Dungeon – Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #101010;
+      color: #f5f5f5;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .container {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 8px;
+      letter-spacing: 0.12em;
+      font-size: 26px;
+      text-align: center;
+    }
+    .rules {
+      margin: 0 0 16px;
+      font-size: 14px;
+      text-align: center;
+      color: #bbbbbb;
+    }
+    .rules .crystal { color: #ce93d8; }
+    .rules .coin { color: #ffeb3b; }
+    .rules .heart { color: #ef5350; }
+
+    .canvas-div {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .game {
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 24px rgba(0,0,0,.7);
+    }
+    .stats {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: stretch;
+      min-width: 220px;
+    }
+    .stats canvas {
+      border-radius: 12px;
+      background: #151515;
+      box-shadow: 0 0 16px rgba(0,0,0,.7);
+    }
+    .btn-back {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      background: #ff9800;
+      color: #111;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+    }
+    .btn-back:hover {
+      filter: brightness(1.05);
+    }
+
+    @media (max-width: 1100px) {
+      .game canvas {
+        max-width: 100%;
+        height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>CAT DUNGEON</h1>
+
+    <p class="rules">
+      Find all <span class="crystal">keys</span> to open the door.<br>
+      Collect <span class="coin">cakes</span> and avoid <span class="heart">enemies</span>.
+    </p>
+
+    <div class="canvas-div">
+      <div class="game">
+        <!-- ВАЖНО: id="game" — сюда рендерится твоя игра -->
+        <canvas id="game" width="960" height="960"></canvas>
+      </div>
+      <div class="stats">
+        <!-- если захочешь, сюда можно рисовать отдельную статистику,
+             сейчас GameManager рисует HUD прямо в основной canvas -->
+        <canvas id="canvasStats" width="260" height="260"></canvas>
+        <!-- Кнопка возврата в меню выбора имени -->
+        <a class="btn-back" href="login.html">Back to menu</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- стартуем игру -->
+  <script type="module" src="./level1.js"></script>
+</body>
+</html>

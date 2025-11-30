@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Dungeon – Login</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #101010;
+      color: #f5f5f5;
+    }
+    .container {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .panel {
+      background: #1e1e1e;
+      padding: 24px 32px;
+      border-radius: 16px;
+      box-shadow: 0 0 24px rgba(0,0,0,.7);
+      max-width: 420px;
+      width: 100%;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      text-align: center;
+      letter-spacing: 0.08em;
+    }
+    .subtitle {
+      margin: 0 0 24px;
+      text-align: center;
+      font-size: 14px;
+      color: #bbbbbb;
+    }
+    .name-input {
+      margin-top: 8px;
+    }
+    .input_group {
+      position: relative;
+      margin-bottom: 18px;
+    }
+    .input_group_input {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 10px;
+      border: 1px solid #444;
+      background: #121212;
+      color: #f5f5f5;
+      font-size: 14px;
+      outline: none;
+    }
+    .input_group_input:focus {
+      border-color: #ff9800;
+      box-shadow: 0 0 0 1px rgba(255,152,0,.4);
+    }
+    .input_group_label {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 0 4px;
+      pointer-events: none;
+      font-size: 14px;
+      color: #777;
+      background: #1e1e1e;
+      transition: all .15s ease;
+    }
+    .input_group_input:focus + .input_group_label,
+    .input_group_input:not(:placeholder-shown) + .input_group_label {
+      top: 0;
+      font-size: 11px;
+      color: #ffb74d;
+    }
+    .enter-btn {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: none;
+      background: #ff9800;
+      color: #111;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .enter-btn:hover {
+      filter: brightness(1.05);
+    }
+  </style>
+</head>
+<body>
+
+  <main class="container">
+    <section class="panel">
+      <header>
+        <h1>Cat Dungeon</h1>
+        <p class="subtitle">Enter the maze. Grab the cakes. Beware the enemies.</p>
+      </header>
+
+      <section class="name-input">
+        <form id="nickname-form" action="game.html" method="get" autocomplete="off">
+          <div class="input_group">
+            <input
+              type="text"
+              id="nickname-input"
+              name="nickname"
+              class="input_group_input"
+              required
+              minlength="2"
+              maxlength="16"
+              placeholder=" "
+            />
+            <label for="nickname-input" class="input_group_label">
+              Enter your nickname
+            </label>
+          </div>
+
+          <button type="submit" class="enter-btn">Enter the dungeon</button>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('nickname-form');
+    const input = document.getElementById('nickname-input');
+
+    // подставляем сохранённое имя, если есть
+    try {
+      const saved = localStorage.getItem('catGamePlayerName');
+      if (saved) {
+        input.value = saved;
+      }
+    } catch (e) {}
+
+    // сохраняем имя при входе
+    form.addEventListener('submit', () => {
+      let name = input.value.trim();
+      if (!name) name = 'Игрок';
+      try {
+        localStorage.setItem('catGamePlayerName', name);
+      } catch (e) {}
+    });
+  </script>
+</body>
+</html>

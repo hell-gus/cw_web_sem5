@@ -1,105 +1,282 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <title>Cat Maze — рекорды</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <title>Cat Dungeon — Таблица рекордов</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
+    html, body {
       margin: 0;
-      font-family: sans-serif;
-      background: #111;
-      color: #eee;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #101010;
+      color: #f5f5f5;
+    }
+    .page {
+      min-height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      padding: 16px;
+      box-sizing: border-box;
     }
-    .records-card {
-      background: #222;
-      padding: 24px 32px;
-      border-radius: 8px;
-      box-shadow: 0 0 20px rgba(0,0,0,.6);
-      min-width: 320px;
+    .card {
+      background: #1e1e1e;
+      border-radius: 16px;
+      padding: 24px 28px;
+      box-shadow: 0 0 32px rgba(0,0,0,.7);
+      max-width: 640px;
+      width: 100%;
     }
     h1 {
-      margin-top: 0;
-      margin-bottom: 12px;
-      font-size: 20px;
+      margin: 0 0 4px;
+      text-align: center;
+      font-size: 26px;
+      letter-spacing: .12em;
     }
-    #current-run {
-      margin-bottom: 10px;
+    .subtitle {
+      margin: 0 0 18px;
+      text-align: center;
       font-size: 14px;
-      color: #ccc;
+      color: #b0b0b0;
+    }
+    .last-result {
+      margin-bottom: 18px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255, 152, 0, 0.08);
+      border: 1px solid rgba(255, 152, 0, 0.4);
+      font-size: 14px;
+    }
+    .last-result strong {
+      color: #ffb74d;
     }
     table {
-      border-collapse: collapse;
       width: 100%;
-      margin-bottom: 16px;
+      border-collapse: collapse;
       font-size: 14px;
+      margin-bottom: 16px;
     }
     th, td {
-      border: 1px solid #444;
-      padding: 4px 8px;
+      padding: 6px 8px;
       text-align: left;
     }
     th {
-      background: #333;
+      border-bottom: 1px solid #444;
+      font-weight: 600;
+      color: #cccccc;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
     }
     tr:nth-child(even) td {
-      background: #292929;
+      background: #222222;
     }
-    button {
-      padding: 6px 14px;
+    tr.highlight td {
+      background: rgba(255, 152, 0, 0.16);
+    }
+    .empty {
+      text-align: center;
+      padding: 10px 0;
+      color: #999;
+      font-size: 14px;
+    }
+
+    .buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .btn {
+      flex: 1;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: none;
       cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .btn-main {
+      background: #ff9800;
+      color: #111;
+    }
+    .btn-main:hover {
+      filter: brightness(1.05);
+    }
+    .btn-clear {
+      background: #333;
+      color: #ddd;
+    }
+    .btn-clear:hover {
+      background: #444;
     }
   </style>
 </head>
 <body>
-  <div class="records-card">
-    <h1>Таблица рекордов</h1>
-    <div id="current-run"></div>
+  <div class="page">
+    <div class="card">
+      <h1>CAT DUNGEON</h1>
+      <p class="subtitle">Таблица рекордов</p>
 
-    <table id="records-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Имя</th>
-          <th>Очки</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+      <div id="lastResult" class="last-result" style="display:none;"></div>
 
-    <button id="again-btn">Сыграть ещё раз</button>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Игрок</th>
+            <th>Счёт</th>
+            <th>Дата</th>
+          </tr>
+        </thead>
+        <tbody id="recordsBody">
+          <!-- строки рекордов сюда -->
+        </tbody>
+      </table>
+
+      <div class="empty" id="emptyMessage" style="display:none;">
+        Пока нет рекордов. Сыграйте партию!
+      </div>
+
+      <div class="buttons">
+        <button class="btn btn-main" id="btnBack">Назад в меню</button>
+        <button class="btn btn-clear" id="btnClear">Очистить рекорды</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    const tbody = document.querySelector('#records-table tbody');
-    const records = JSON.parse(localStorage.getItem('catGame_records') || '[]');
+    const STORAGE_KEY = 'catGameRecords'
+    const LAST_KEY = 'catGameLastResult'
 
-    records.forEach((rec, i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td>${rec.name}</td>
-        <td>${rec.score}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-    const currentRunDiv = document.getElementById('current-run');
-    const last = localStorage.getItem('catGame_lastScore');
-    if (last) {
-      const { name, score } = JSON.parse(last);
-      currentRunDiv.textContent = `Последняя игра: ${name}, очки: ${score}`;
-    } else {
-      currentRunDiv.textContent = 'Пока нет результатов — сыграйте партию.';
+    function loadRecords() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) return []
+        const arr = JSON.parse(raw)
+        if (!Array.isArray(arr)) return []
+        return arr
+          .filter(r => r && typeof r.score === 'number')
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+      } catch (e) {
+        console.error('Ошибка чтения рекордов:', e)
+        return []
+      }
     }
 
-    document.getElementById('again-btn').addEventListener('click', () => {
-      window.location.href = 'index.html';
-    });
+    function loadLastResult() {
+      try {
+        const raw = localStorage.getItem(LAST_KEY)
+        if (!raw) return null
+        return JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+
+    function formatDate(iso) {
+      if (!iso) return ''
+      try {
+        const d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return ''
+        const dd = String(d.getDate()).padStart(2, '0')
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        const yy = d.getFullYear()
+        const hh = String(d.getHours()).padStart(2, '0')
+        const min = String(d.getMinutes()).padStart(2, '0')
+        return `${dd}.${mm}.${yy} ${hh}:${min}`
+      } catch {
+        return ''
+      }
+    }
+
+    function render() {
+      const tbody = document.getElementById('recordsBody')
+      const lastBlock = document.getElementById('lastResult')
+      const empty = document.getElementById('emptyMessage')
+
+      const records = loadRecords()
+      const last = loadLastResult()
+
+      if (last) {
+        lastBlock.style.display = ''
+        lastBlock.innerHTML =
+          `<strong>Последняя игра:</strong> ${last.name || 'Игрок'} — ${last.score || 0} очков`
+      } else {
+        lastBlock.style.display = 'none'
+      }
+
+      tbody.innerHTML = ''
+
+      if (!records.length) {
+        empty.style.display = ''
+        return
+      }
+      empty.style.display = 'none'
+
+      let highlightIndex = -1
+      if (last) {
+        highlightIndex = records.findIndex(r =>
+          r.name === last.name &&
+          r.score === last.score &&
+          r.date === last.date
+        )
+      }
+
+      records.forEach((rec, idx) => {
+        const tr = document.createElement('tr')
+        if (idx === highlightIndex) {
+          tr.classList.add('highlight')
+        }
+
+        const tdRank = document.createElement('td')
+        tdRank.textContent = String(idx + 1)
+
+        const tdName = document.createElement('td')
+        tdName.textContent = rec.name || 'Игрок'
+
+        const tdScore = document.createElement('td')
+        tdScore.textContent = String(rec.score || 0)
+
+        const tdDate = document.createElement('td')
+        tdDate.textContent = formatDate(rec.date)
+
+        tr.appendChild(tdRank)
+        tr.appendChild(tdName)
+        tr.appendChild(tdScore)
+        tr.appendChild(tdDate)
+        tbody.appendChild(tr)
+      })
+    }
+
+    function setupButtons() {
+      const btnBack = document.getElementById('btnBack')
+      const btnClear = document.getElementById('btnClear')
+
+      btnBack.addEventListener('click', () => {
+        window.location.href = 'login.html'
+      })
+
+      btnClear.addEventListener('click', () => {
+        if (!confirm('Точно очистить все рекорды?')) return
+        try {
+          localStorage.removeItem(STORAGE_KEY)
+          localStorage.removeItem(LAST_KEY)
+        } catch (e) {
+          console.error('Не удалось очистить рекорды:', e)
+        }
+        render()
+      })
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      render()
+      setupButtons()
+    })
   </script>
 </body>
 </html>

@@ -85,17 +85,23 @@ export class SpriteManager {
     return s || null;
   };
 
-  drawSprite = (ctx, name, x, y) => {
-    const sprite = this.getSprite(name);
+    drawSprite = (ctx, name, x, y) => {
+    const sprite = this.getSprite(name)
     if (!sprite || !sprite.img) {
-      // один раз влепим предупреждение в консоль
-      // (чтобы не засорять, можно закомментить)
-      // console.warn('SpriteManager: нет спрайта', name);
-      return;
+      // спрайт ещё не найден / не распарсился
+      return
+    }
+
+    const img = sprite.img
+
+    // если картинка ещё грузится или сломалась — просто не рисуем,
+    // чтобы не было InvalidStateError
+    if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) {
+      return
     }
 
     ctx.drawImage(
-      sprite.img,
+      img,
       sprite.x,
       sprite.y,
       sprite.w,
@@ -104,6 +110,7 @@ export class SpriteManager {
       y,
       sprite.w,
       sprite.h
-    );
-  };
+    )
+  }
 }
+

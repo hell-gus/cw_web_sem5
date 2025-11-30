@@ -45,6 +45,9 @@ export class GameManager {
 
     // состояние выхода
     this.exitUnlocked = false
+
+    // игра уже завершена / рекорд сохранён
+    this.gameFinished = false
   }
 
   init(canvasId, config) {
@@ -67,11 +70,14 @@ export class GameManager {
     this.entitiesFromMapDone = false
     this.lastTimestamp = 0
     this.exitUnlocked = false
+    this.gameFinished = false
 
-    // счёт и имя
+    // счёт
     if (!config || !config.keepScore) {
       this.score = 0
     }
+
+    // имя игрока — ТОЛЬКО из конфига
     if (config && config.playerName) {
       this.playerName = config.playerName
     }
@@ -120,11 +126,17 @@ export class GameManager {
       this.mapManager.setGameManager(this)
     }
 
-    // ---------- карта + спрайты ----------
-    // после сброса флагов jsonLoaded/imgLoaded они будут false,
-    // пока реально не загрузится НОВЫЙ json и картинки
+    // ---------- карта ----------
     this.mapManager.loadMap(config.map)
-    this.spriteManager.loadAtlas(config.atlasJson, config.atlasImg)
+
+    // ---------- спрайты ----------
+    // общий атлас с ключами, тортами, врагами, выходом
+    this.spriteManager.loadAtlas('./img/sprites.json', './img/sprites.png')
+
+    // атлас кота (анимация игрока) из конфига
+    if (config && config.atlasJson && config.atlasImg) {
+      this.spriteManager.loadAtlas(config.atlasJson, config.atlasImg)
+    }
 
     // управление
     this.eventsManager.setup(this.canvas)
@@ -243,9 +255,56 @@ export class GameManager {
     this.goToNextLevel()
   }
 
+  // ---- Сохранение рекорда и переход на страницу рекордов ----
+  finishGame() {
+    // защита от многократного вызова (когда игрок стоит на выходе несколько кадров подряд)
+    if (this.gameFinished) {
+      return
+    }
+    this.gameFinished = true
+
+    try {
+      const name = this.playerName || 'Игрок'
+      const score = this.score || 0
+
+      const result = {
+        name,
+        score,
+        date: new Date().toISOString(),
+      }
+
+      const key = 'catGameRecords'
+      let records = []
+      const raw = localStorage.getItem(key)
+      if (raw) {
+        try {
+          records = JSON.parse(raw) || []
+        } catch (e) {
+          console.warn('Не удалось распарсить старые рекорды', e)
+        }
+      }
+
+      records.push(result)
+      records.sort((a, b) => (b.score || 0) - (a.score || 0))
+      records = records.slice(0, 20)
+
+      localStorage.setItem(key, JSON.stringify(records))
+      localStorage.setItem('catGameLastResult', JSON.stringify(result))
+    } catch (e) {
+      console.error('Не удалось сохранить рекорд', e)
+    }
+
+    // аккуратно формируем URL к records.html в той же папке, что и game.html
+    const base = window.location.href.split('#')[0].split('?')[0]
+    const dir = base.substring(0, base.lastIndexOf('/') + 1)
+    window.location.href = dir + 'records.html'
+  }
+
   goToNextLevel() {
+    // если следующего уровня нет — считаем, что игра пройдена
     if (!this.nextLevelConfig) {
-      console.warn('nextLevelConfig не задан — следующего уровня нет')
+      console.log('Последний уровень пройден, переходим к таблице рекордов')
+      this.finishGame()
       return
     }
 
@@ -299,7 +358,6 @@ export class GameManager {
       }
     }
 
-    // если Cat/Player на карте не нашли — fallback на конфиг
     if (
       this.currentConfig &&
       typeof this.currentConfig.startX === 'number' &&
@@ -321,12 +379,10 @@ export class GameManager {
   update(dt) {
     if (!this.player) return
 
-    // спавн игрока только ПОСЛЕ загрузки json новой карты
     if (!this.spawnFromMapDone && this.mapManager && this.mapManager.jsonLoaded) {
       this.initSpawnFromMap()
     }
 
-    // парсим объекты карты только ПОСЛЕ полной загрузки json + картинок новой карты
     if (
       !this.entitiesFromMapDone &&
       this.mapManager &&
