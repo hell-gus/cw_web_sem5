@@ -6,7 +6,7 @@ console.log('level1.js загружен')
 const gm = new GameManager()
 
 gm.init('game', {
-  map: './level1.json',
+  map: './level2.json',
 
   atlasJson: './img/sprites.json',
   atlasImg: './img/sprites.png',

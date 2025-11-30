@@ -195,7 +195,18 @@ export class GameManager {
   }
 
   onKeyCollected(keyEntity) {
-    this.keysCollected += 1
+    // защита от повторного учёта одного и того же ключа
+    if (keyEntity && keyEntity._collected) {
+      return
+    }
+    if (keyEntity) {
+      keyEntity._collected = true
+    }
+
+    if (this.keysCollected < this.keysTotal) {
+      this.keysCollected += 1
+    }
+
     console.log(`Собрано ключей: ${this.keysCollected}/${this.keysTotal}`)
 
     if (this.keysCollected >= this.keysTotal) {
@@ -250,50 +261,48 @@ export class GameManager {
   }
 
   // спавн игрока по объекту Cat/Player с карты (только координаты)
-  // спавн игрока по объекту Cat/Player с карты (только координаты)
-initSpawnFromMap() {
-  if (!this.mapManager || !this.mapManager.mapData || !this.player) return
+  initSpawnFromMap() {
+    if (!this.mapManager || !this.mapManager.mapData || !this.player) return
 
-  const layers = this.mapManager.mapData.layers || []
+    const layers = this.mapManager.mapData.layers || []
 
-  for (const layer of layers) {
-    if (layer.type !== 'objectgroup') continue
+    for (const layer of layers) {
+      if (layer.type !== 'objectgroup') continue
 
-    const layerOffsetX = layer.offsetx || 0
-    const layerOffsetY = layer.offsety || 0
+      const layerOffsetX = layer.offsetx || 0
+      const layerOffsetY = layer.offsety || 0
 
-    const objects = layer.objects || []
+      const objects = layer.objects || []
 
-    for (const obj of objects) {
-      if (
-        obj.type === 'Cat' ||
-        obj.type === 'cat' ||
-        obj.type === 'Player' ||
-        obj.type === 'player' ||
-        obj.name === 'Cat' ||
-        obj.name === 'cat'
-      ) {
-        const isTileObject = typeof obj.gid === 'number'
+      for (const obj of objects) {
+        if (
+          obj.type === 'Cat' ||
+          obj.type === 'cat' ||
+          obj.type === 'Player' ||
+          obj.type === 'player' ||
+          obj.name === 'Cat' ||
+          obj.name === 'cat'
+        ) {
+          const isTileObject = typeof obj.gid === 'number'
 
-        const baseX = obj.x + layerOffsetX
-        const baseY = obj.y + layerOffsetY
+          const baseX = obj.x + layerOffsetX
+          const baseY = obj.y + layerOffsetY
 
-        const spawnX = baseX
-        const spawnY = isTileObject ? baseY - obj.height : baseY
+          const spawnX = baseX
+          const spawnY = isTileObject ? baseY - obj.height : baseY
 
-        this.player.pos_x = spawnX
-        this.player.pos_y = spawnY
+          this.player.pos_x = spawnX
+          this.player.pos_y = spawnY
 
-        this.spawnFromMapDone = true
-        console.log('Spawn игрока из карты:', { spawnX, spawnY, obj })
-        return
+          this.spawnFromMapDone = true
+          console.log('Spawn игрока из карты:', { spawnX, spawnY, obj })
+          return
+        }
       }
     }
+
+    this.spawnFromMapDone = true
   }
-
-  this.spawnFromMapDone = true
-}
-
 
   // ===== логика кадра =====
   update(dt) {
