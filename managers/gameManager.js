@@ -8,6 +8,7 @@ import { Player } from '../object/Player.js'
 import { Bonus } from '../object/Bonus.js'
 import { Key } from '../object/Key.js'
 import { Enemy1, Enemy2, Enemy3 } from '../object/Enemy.js'
+import { Exit } from '../object/Exit.js'
 
 export class GameManager {
   constructor() {
@@ -36,9 +37,20 @@ export class GameManager {
 
     this.keysTotal = 5
     this.keysCollected = 0
+
+    // уровни
+    this.canvasId = null          // какой canvas используем
+    this.currentConfig = null     // конфиг текущего уровня
+    this.nextLevelConfig = null   // конфиг следующего уровня
+
+    // состояние выхода
+    this.exitUnlocked = false
   }
 
   init(canvasId, config) {
+    this.canvasId = canvasId
+    this.currentConfig = config || {}
+
     this.canvas = document.getElementById(canvasId)
     if (!this.canvas) {
       console.error('Не найден canvas с id', canvasId)
@@ -54,16 +66,21 @@ export class GameManager {
     this.spawnFromMapDone = false
     this.entitiesFromMapDone = false
     this.lastTimestamp = 0
+    this.exitUnlocked = false
 
     // игрок / уровень
-    this.score = 0
+    if (!config || !config.keepScore) {
+      this.score = 0
+    }
+
     if (config && config.playerName) {
       this.playerName = config.playerName
     }
+
     this.level =
       config && typeof config.level === 'number'
         ? config.level
-        : 1
+        : this.level || 1
 
     // ключи можно переопределить через config
     this.keysTotal =
@@ -71,6 +88,10 @@ export class GameManager {
         ? config.keysTotal
         : 5
     this.keysCollected = 0
+
+    // запоминаем конфиг следующего уровня, если передали
+    this.nextLevelConfig =
+      config && config.nextLevelConfig ? config.nextLevelConfig : null
 
     // окно просмотра карты
     this.mapManager.view = {
@@ -96,10 +117,8 @@ export class GameManager {
     this.physicManager.setManager(this, this.mapManager)
 
     // ---------- фабрика сущностей ----------
-    // имена должны совпадать с type / name в Tiled
 
-    // игрок — создаём вручную, поэтому фабрику для Cat не используем,
-    // иначе получим второго кота из objectlayer
+    // игрок — создаём вручную
     this.factory['Player'] = Player
     this.factory['player'] = Player
 
@@ -125,6 +144,10 @@ export class GameManager {
     // если в Tiled type = "Enemy" — пусть будет Enemy2
     this.factory['Enemy'] = Enemy2
     this.factory['enemy'] = Enemy2
+
+    // выход
+    this.factory['Exit'] = Exit
+    this.factory['exit'] = Exit
 
     // ---------- создаём игрока вручную ----------
     const p = new Player()
@@ -183,49 +206,94 @@ export class GameManager {
   onPlayerDied() {
     console.log('Игрок погиб')
     if (typeof window !== 'undefined') {
+      // можно сделать рестарт уровня вместо reload:
+      // this.init(this.canvasId, { ...this.currentConfig, keepScore: false })
       window.location.reload()
     }
   }
 
   unlockExit() {
+    this.exitUnlocked = true
     console.log('Выход разблокирован')
   }
 
-  // спавн игрока по объекту Cat/Player с карты (только координаты)
-  initSpawnFromMap() {
-    if (!this.mapManager || !this.mapManager.mapData || !this.player) return
+  // кот коснулся объекта Exit → пробуем перейти
+  handleExitTouch(exitEntity) {
+    if (!exitEntity) return
+    this.tryExit()
+  }
 
-    const layers = this.mapManager.mapData.layers || []
+  tryExit() {
+    if (!this.exitUnlocked) {
+      console.log('Выход закрыт, нужно собрать все ключи')
+      return
+    }
+    console.log('Переход на следующий уровень...')
+    this.goToNextLevel()
+  }
 
-    for (const layer of layers) {
-      if (layer.type !== 'objectgroup') continue
-      const objects = layer.objects || []
-
-      for (const obj of objects) {
-        if (
-          obj.type === 'Cat' ||
-          obj.type === 'cat' ||
-          obj.type === 'Player' ||
-          obj.type === 'player' ||
-          obj.name === 'Cat' ||
-          obj.name === 'cat'
-        ) {
-          const isTileObject = typeof obj.gid === 'number'
-          const spawnX = obj.x
-          const spawnY = isTileObject ? obj.y - obj.height : obj.y
-
-          this.player.pos_x = spawnX
-          this.player.pos_y = spawnY
-
-          this.spawnFromMapDone = true
-          console.log('Spawn игрока из карты:', { spawnX, spawnY, obj })
-          return
-        }
-      }
+  // переход на следующий уровень без level2.html
+  goToNextLevel() {
+    if (!this.nextLevelConfig) {
+      console.warn('nextLevelConfig не задан — следующего уровня нет')
+      return
     }
 
-    this.spawnFromMapDone = true
+    const cfg = {
+      ...this.nextLevelConfig,
+      playerName: this.playerName,
+      keepScore: true, // сохраняем счёт
+    }
+
+    this.level += 1
+    this.init(this.canvasId, cfg)
   }
+
+  // спавн игрока по объекту Cat/Player с карты (только координаты)
+  // спавн игрока по объекту Cat/Player с карты (только координаты)
+initSpawnFromMap() {
+  if (!this.mapManager || !this.mapManager.mapData || !this.player) return
+
+  const layers = this.mapManager.mapData.layers || []
+
+  for (const layer of layers) {
+    if (layer.type !== 'objectgroup') continue
+
+    const layerOffsetX = layer.offsetx || 0
+    const layerOffsetY = layer.offsety || 0
+
+    const objects = layer.objects || []
+
+    for (const obj of objects) {
+      if (
+        obj.type === 'Cat' ||
+        obj.type === 'cat' ||
+        obj.type === 'Player' ||
+        obj.type === 'player' ||
+        obj.name === 'Cat' ||
+        obj.name === 'cat'
+      ) {
+        const isTileObject = typeof obj.gid === 'number'
+
+        const baseX = obj.x + layerOffsetX
+        const baseY = obj.y + layerOffsetY
+
+        const spawnX = baseX
+        const spawnY = isTileObject ? baseY - obj.height : baseY
+
+        this.player.pos_x = spawnX
+        this.player.pos_y = spawnY
+
+        this.spawnFromMapDone = true
+        console.log('Spawn игрока из карты:', { spawnX, spawnY, obj })
+        return
+      }
+    }
+  }
+
+  this.spawnFromMapDone = true
+}
+
 
   // ===== логика кадра =====
   update(dt) {
@@ -256,6 +324,16 @@ export class GameManager {
           return false
         }
         return true
+      })
+
+      // фикс для Exit: если parseEntities переопределил spriteName = "Exit",
+      // возвращаем нормальный кадр из атласа ("Ex1")
+      this.entities.forEach((e) => {
+        if (e instanceof Exit) {
+          if (!e.spriteName || e.spriteName === 'Exit' || e.spriteName === 'exit') {
+            e.spriteName = 'Ex1'
+          }
+        }
       })
     }
 

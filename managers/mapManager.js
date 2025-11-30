@@ -217,6 +217,8 @@ export class mapManager {
   }
 
   // ---------- objectgroup-слои / сущности ----------
+  // ---------- objectgroup-слои / сущности ----------
+  // ---------- objectgroup-слои / сущности ----------
   parseEntities() {
     // ждём, пока карта и тайлы реально загрузились
     if (!this.imgLoaded || !this.jsonLoaded || !this.gameManager) {
@@ -227,26 +229,26 @@ export class mapManager {
     const gm = this.gameManager;
     if (!gm.factory) return;
 
-    // очищаем кеш объектов и список сущностей (добавим заново)
+    // очищаем кеш объектов и наполняем заново
     this.objects = [];
-    gm.entities = gm.entities || [];
 
     for (const layer of this.mapData.layers) {
       if (layer.type !== 'objectgroup') continue;
+
+      const layerOffsetX = layer.offsetx || 0;
+      const layerOffsetY = layer.offsety || 0;
 
       const entities = layer.objects || [];
 
       for (const e of entities) {
         try {
+          // пробуем сначала по type, потом по name
           const keyType = e.type || '';
           const keyName = e.name || '';
 
-          // !!! СНАЧАЛА ищем по имени (Enemy1/Enemy2/Enemy3), потом по type (Enemy)
-          let EntityClass = null;
-          if (keyName && gm.factory[keyName]) {
+          let EntityClass = gm.factory[keyType];
+          if (!EntityClass && keyName) {
             EntityClass = gm.factory[keyName];
-          } else if (keyType && gm.factory[keyType]) {
-            EntityClass = gm.factory[keyType];
           }
 
           if (!EntityClass) {
@@ -256,41 +258,48 @@ export class mapManager {
 
           const obj = new EntityClass();
 
-          // имя из Tiled + привязка к spriteName
+          // имя из Tiled
           if (e.name) {
             obj.name = e.name;
+            // если у объекта есть поле spriteName — считаем, что хотим таким же именем
             if ('spriteName' in obj) {
-              obj.spriteName = e.name; // Enemy1 → спрайт Enemy1
+              obj.spriteName = e.name;
             }
           } else if (e.type) {
             obj.name = e.type;
           }
 
-          // координаты
+          // координаты с учётом offset слоя
           const isTileObject = typeof e.gid === 'number';
-          obj.pos_x  = e.x;
-          obj.pos_y  = isTileObject ? e.y - e.height : e.y;
 
-          obj.size_x = e.width  || obj.size_x || this.tSize.x;
-          obj.size_y = e.height || obj.size_y || this.tSize.y;
+          const baseX = e.x + layerOffsetX;
+          const baseY = e.y + layerOffsetY;
+
+          obj.pos_x = baseX;
+          obj.pos_y = isTileObject ? baseY - e.height : baseY;
+
+          // размеры хитбокса (если в Tiled заданы)
+          if (e.width)  obj.size_x = e.width;
+          if (e.height) obj.size_y = e.height;
 
           // ссылки на менеджеры
-          obj.gameManager   = gm;
+          obj.gameManager = gm;
           obj.spriteManager = gm.spriteManager;
-
           if ('physicManager' in obj) {
             obj.physicManager = gm.physicManager;
           }
 
           // сохраняем
-          this.objects.push(obj);
           gm.entities.push(obj);
+          this.objects.push(obj);
         } catch (err) {
-          console.error('Ошибка создания объекта карты:', e, err);
+          console.error('Ошибка создания сущности из объекта карты', e, err);
         }
       }
     }
   }
+
+
 
   // ---------- получить gid тайла по мировым координатам ----------
   getTilesetId(x, y) {

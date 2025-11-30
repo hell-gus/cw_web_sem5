@@ -11,6 +11,10 @@ export class Player extends Entity {
     this.move_x = 0
     this.move_y = 0
 
+    // размеры хитбокса
+    this.size_x = 24
+    this.size_y = 24
+
     // жизни
     this.lives = 3          // текущее число жизней
     this.maxLives = 3       // максимум жизней
@@ -106,18 +110,30 @@ export class Player extends Entity {
   draw(ctx) {
     if (!ctx) return
 
-    const sm = this.spriteManager
+    const sm =
+      this.spriteManager ||
+      (this.gameManager && this.gameManager.spriteManager) ||
+      null
 
     // если спрайт найден — рисуем кота
     if (sm && this.spriteName && typeof sm.getSprite === 'function') {
       const sprite = sm.getSprite(this.spriteName)
       if (sprite) {
+        ctx.save()
+
+        // пока действует неуязвимость — мигаем/полупрозрачные
+        if (this.invulnTimer > 0) {
+          ctx.globalAlpha = 0.6
+        }
+
         sm.drawSprite(
           ctx,
           this.spriteName,
           this.pos_x + this.spriteOffsetX,
           this.pos_y + this.spriteOffsetY,
         )
+
+        ctx.restore()
         return
       }
     }
@@ -130,7 +146,9 @@ export class Player extends Entity {
   onTouchEntity(obj) {
     if (!obj || this.isDead) return
 
-    // враги по имени
+    const gm = this.gameManager
+
+    // ===== ВРАГИ =====
     const isEnemy =
       obj.name === 'Enemy1' ||
       obj.name === 'Enemy2' ||
@@ -153,10 +171,63 @@ export class Player extends Entity {
       // если жизни закончились — смерть
       if (this.lives <= 0) {
         this.isDead = true
-        if (this.gameManager && typeof this.gameManager.onPlayerDied === 'function') {
-          this.gameManager.onPlayerDied()
+        if (gm && typeof gm.onPlayerDied === 'function') {
+          gm.onPlayerDied()
         }
       }
+      return
+    }
+
+    // ===== КЛЮЧИ =====
+    const isKey =
+      obj.name === 'Key' ||
+      obj.name === 'key' ||
+      obj.type === 'Key' ||
+      obj.type === 'key'
+
+    if (isKey) {
+      if (gm && typeof gm.onKeyCollected === 'function') {
+        gm.onKeyCollected(obj)
+      }
+      if (gm && typeof gm.kill === 'function') {
+        gm.kill(obj)
+      }
+      return
+    }
+
+    // ===== БОНУСЫ (вкусняшки) =====
+    const isBonus =
+      obj.name === 'Bonus' ||
+      obj.name === 'bonus' ||
+      obj.type === 'Bonus' ||
+      obj.type === 'bonus' ||
+      obj.name === 'cake'
+
+    if (isBonus) {
+      // ускорение кота, например до 280 на 3 секунды
+      this.applySpeedBoost(280, 3)
+
+      if (gm && typeof gm.addScore === 'function') {
+        gm.addScore(10)
+      }
+      if (gm && typeof gm.kill === 'function') {
+        gm.kill(obj)
+      }
+      return
+    }
+
+    // ===== ВЫХОД (EXIT) =====
+    const isExit =
+      obj.name === 'Exit' ||
+      obj.name === 'exit' ||
+      obj.type === 'Exit' ||
+      obj.type === 'exit'
+
+    if (isExit) {
+      if (gm && typeof gm.tryExit === 'function') {
+        gm.tryExit()
+      }
+      return
     }
   }
 
@@ -174,7 +245,8 @@ export class Player extends Entity {
 
   // применить ускорение от вкусняшки
   applySpeedBoost(boostSpeed, duration) {
-    if (boostSpeed <= this.baseSpeed) return
+    // не понижаем скорость, если уже быстрее
+    if (boostSpeed <= this.speed) return
     this.speed = boostSpeed
     this.speedBoostTimer = duration
   }

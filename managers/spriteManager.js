@@ -1,54 +1,53 @@
 // managers/spriteManager.js
 export class SpriteManager {
   constructor() {
-    this.mapManager = null
+    this.mapManager = null;
 
     // все спрайты из всех атласов
-    // каждый спрайт знает, из какой картинки его рисовать
-    this.sprites = []
+    this.sprites = [];
 
-    this.imgLoaded = false
-    this.jsonLoaded = false
+    this.imgLoaded = false;
+    this.jsonLoaded = false;
   }
 
   setManager = (mapManager) => {
-    this.mapManager = mapManager
-  }
+    this.mapManager = mapManager;
+  };
 
-  // можно вызывать несколько раз для разных атласов:
-  //  - cat_ginger_atlas.json / .png
-  //  - objects_atlas.json / .png (ключ, торт, монстры)
   loadAtlas(atlasJson, atlasImg) {
-    const img = new Image()
-    img.src = atlasImg
+    const img = new Image();
+    img.src = atlasImg;
     img.onload = () => {
-      this.imgLoaded = true
-      console.log('SpriteManager: картинка атласа загружена', atlasImg)
-    }
+      this.imgLoaded = true;
+      console.log('SpriteManager: картинка атласа загружена', atlasImg);
+    };
 
     fetch(atlasJson)
       .then((res) => res.json())
       .then((data) => {
-        const spritesToAdd = []
+        const spritesToAdd = [];
 
         if (Array.isArray(data)) {
           // формат: [ { name, x, y, w, h }, ... ]
           for (const sprite of data) {
             spritesToAdd.push({
-              name: sprite.name,
+              name: String(sprite.name).trim(),
               x: sprite.x,
               y: sprite.y,
               w: sprite.w ?? sprite.width,
               h: sprite.h ?? sprite.height,
-              img, // ссылка на конкретную картинку
-            })
+              img,
+            });
           }
         } else {
-          // формат aseprite / texturepacker: frames: { "name.png": { frame:{x,y,w,h} } }
-          const frames = data.frames || data
+          // формат texturepacker / leshy: frames: { "name": { frame:{x,y,w,h} } }
+          const frames = data.frames || data;
           for (const [rawName, frameData] of Object.entries(frames)) {
-            const f = frameData.frame || frameData
-            const name = rawName.replace(/\.(png|aseprite)$/i, '')
+            const f = frameData.frame || frameData;
+            const name = String(
+              rawName.replace(/\.(png|aseprite)$/i, '')
+            ).trim();
+
             spritesToAdd.push({
               name,
               x: f.x,
@@ -56,28 +55,44 @@ export class SpriteManager {
               w: f.w ?? f.width,
               h: f.h ?? f.height,
               img,
-            })
+            });
           }
         }
 
-        // важно: ДОБАВЛЯЕМ, а не перетираем —
-        // так можно грузить несколько атласов
-        this.sprites.push(...spritesToAdd)
+        this.sprites.push(...spritesToAdd);
 
-        this.jsonLoaded = true
-        console.log('SpriteManager: загружено спрайтов', this.sprites.length)
+        this.jsonLoaded = true;
+        console.log('SpriteManager: загружено спрайтов всего', this.sprites.length);
       })
+      .catch((err) => {
+        console.error('SpriteManager: ошибка загрузки атласа', atlasJson, err);
+      });
   }
 
   getSprite = (name) => {
-    return this.sprites.find((s) => s.name === name) || null
-  }
+    if (!name) return null;
+    if (!this.jsonLoaded || !this.sprites.length) return null;
+
+    const n = String(name).trim();
+
+    // сначала точное совпадение
+    let s = this.sprites.find((sp) => sp.name === n);
+    if (s) return s;
+
+    // потом без учёта регистра
+    const lower = n.toLowerCase();
+    s = this.sprites.find((sp) => sp.name.toLowerCase() === lower);
+    return s || null;
+  };
 
   drawSprite = (ctx, name, x, y) => {
-    if (!this.jsonLoaded || !this.sprites.length) return
-
-    const sprite = this.getSprite(name)
-    if (!sprite || !sprite.img) return
+    const sprite = this.getSprite(name);
+    if (!sprite || !sprite.img) {
+      // один раз влепим предупреждение в консоль
+      // (чтобы не засорять, можно закомментить)
+      // console.warn('SpriteManager: нет спрайта', name);
+      return;
+    }
 
     ctx.drawImage(
       sprite.img,
@@ -88,7 +103,7 @@ export class SpriteManager {
       x,
       y,
       sprite.w,
-      sprite.h,
-    )
-  }
+      sprite.h
+    );
+  };
 }
