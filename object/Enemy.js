@@ -33,41 +33,39 @@ class EnemyBase extends Entity {
     this.spriteOffsetX = 0
     this.spriteOffsetY = -4
 
-    // радиус обзора кота
+    // радиус обзора кота (в пикселях)
     this.viewRadius = 160
-    // собственная зона, из которой нельзя выходить
-    this.zoneRadius = 200
 
-    // центр зоны
+    // точка спауна (если потом захочешь ограничения зоны)
     this.originX = 0
     this.originY = 0
     this._originInitialized = false
 
-    // патруль
-    this.patrolPath = []   // массив точек {x, y}
-    this.currentPoint = 0  // индекс текущей точки
-    this.waitTime = 0
-    this.waitAtPoint = 0.3 // пауза в точке
+    // ---- параметры случайного блуждания ----
+    this.randomDirX = 0
+    this.randomDirY = 0
+    this.randomTimer = 0              // сколько ещё двигаться в текущем направлении
+    this.randomIntervalMin = 0.7      // мин. время до смены направления
+    this.randomIntervalMax = 1.8      // макс. время до смены направления
   }
 
   ensureOrigin() {
     if (this._originInitialized) return
     this.originX = this.pos_x
     this.originY = this.pos_y
-    this.buildPatrolPath()
     this._originInitialized = true
   }
 
-  // базовый квадратный маршрут — переопределяется в наследниках
-  buildPatrolPath() {
-    const step = 96
-    this.patrolPath = [
-      { x: this.originX,        y: this.originY },
-      { x: this.originX + step, y: this.originY },
-      { x: this.originX + step, y: this.originY + step },
-      { x: this.originX,        y: this.originY + step },
-    ]
-    this.currentPoint = 0
+  // выбор нового случайного направления
+  pickRandomDirection() {
+    const angle = Math.random() * Math.PI * 2
+    this.randomDirX = Math.cos(angle)
+    this.randomDirY = Math.sin(angle)
+
+    const t =
+      this.randomIntervalMin +
+      Math.random() * (this.randomIntervalMax - this.randomIntervalMin)
+    this.randomTimer = t
   }
 
   dist2(x1, y1, x2, y2) {
@@ -81,67 +79,40 @@ class EnemyBase extends Entity {
     if (!this.gameManager || !this.physicManager) return
 
     const player = this.gameManager.player
-    let targetX = null
-    let targetY = null
+    let chasing = false
 
-    // --- 1) если видим кота и он в нашей зоне — преследуем ---
+    // --- 1) если видим кота — преследуем ---
     if (player) {
       const d2 = this.dist2(this.pos_x, this.pos_y, player.pos_x, player.pos_y)
       const inView = d2 <= this.viewRadius * this.viewRadius
 
-      const d2zone = this.dist2(this.originX, this.originY, player.pos_x, player.pos_y)
-      const inZone = d2zone <= this.zoneRadius * this.zoneRadius
+      if (inView) {
+        let vx = player.pos_x - this.pos_x
+        let vy = player.pos_y - this.pos_y
+        const len = Math.hypot(vx, vy) || 1
+        vx /= len
+        vy /= len
 
-      if (inView && inZone) {
-        targetX = player.pos_x
-        targetY = player.pos_y
+        this.move_x = vx
+        this.move_y = vy
+
+        chasing = true
       }
     }
 
-    // --- 2) не видим кота — ходим по маршруту ---
-    if (targetX === null) {
-      if (!this.patrolPath.length) return
-
-      const point = this.patrolPath[this.currentPoint]
-      const d2p = this.dist2(this.pos_x, this.pos_y, point.x, point.y)
-
-      if (d2p < 4 * 4) {
-        this.waitTime += dt
-        if (this.waitTime >= this.waitAtPoint) {
-          this.waitTime = 0
-          this.currentPoint = (this.currentPoint + 1) % this.patrolPath.length
-        }
-      } else {
-        targetX = point.x
-        targetY = point.y
+    // --- 2) кота не видно — случайное блуждание по карте ---
+    if (!chasing) {
+      this.randomTimer -= dt
+      if (this.randomTimer <= 0) {
+        this.pickRandomDirection()
       }
+
+      this.move_x = this.randomDirX
+      this.move_y = this.randomDirY
     }
 
-    // --- 3) движение к цели ---
-    if (targetX !== null) {
-      let vx = targetX - this.pos_x
-      let vy = targetY - this.pos_y
-      const len = Math.hypot(vx, vy) || 1
-      vx /= len
-      vy /= len
-
-      this.move_x = vx
-      this.move_y = vy
-
-      const nextX = this.pos_x + vx * this.speed * dt
-      const nextY = this.pos_y + vy * this.speed * dt
-      const d2zoneNext = this.dist2(this.originX, this.originY, nextX, nextY)
-
-      if (d2zoneNext <= this.zoneRadius * this.zoneRadius) {
-        this.physicManager.update(this, dt)
-      } else {
-        this.move_x = 0
-        this.move_y = 0
-      }
-    } else {
-      this.move_x = 0
-      this.move_y = 0
-    }
+    // --- 3) движение (стены обрабатывает PhysicManager) ---
+    this.physicManager.update(this, dt)
   }
 
   draw(ctx) {
@@ -193,19 +164,7 @@ export class Enemy1 extends EnemyBase {
     this.spriteName = 'Enemy1'
     this.speed = 70
     this.baseSpeed = this.speed
-    this.viewRadius = 140
-    this.zoneRadius = 160
-  }
-
-  buildPatrolPath() {
-    const step = 64
-    this.patrolPath = [
-      { x: this.originX,        y: this.originY },
-      { x: this.originX + step, y: this.originY },
-      { x: this.originX + step, y: this.originY + step },
-      { x: this.originX,        y: this.originY + step },
-    ]
-    this.currentPoint = 0
+    this.viewRadius = 140 // маленький обзор
   }
 }
 
@@ -216,20 +175,7 @@ export class Enemy2 extends EnemyBase {
     this.spriteName = 'Enemy2'
     this.speed = 90
     this.baseSpeed = this.speed
-    this.viewRadius = 170
-    this.zoneRadius = 210
-  }
-
-  buildPatrolPath() {
-    const stepX = 128
-    const stepY = 64
-    this.patrolPath = [
-      { x: this.originX - stepX / 2, y: this.originY },
-      { x: this.originX + stepX / 2, y: this.originY },
-      { x: this.originX + stepX / 2, y: this.originY + stepY },
-      { x: this.originX - stepX / 2, y: this.originY + stepY },
-    ]
-    this.currentPoint = 0
+    this.viewRadius = 180
   }
 }
 
@@ -240,18 +186,6 @@ export class Enemy3 extends EnemyBase {
     this.spriteName = 'Enemy3'
     this.speed = 110
     this.baseSpeed = this.speed
-    this.viewRadius = 200
-    this.zoneRadius = 260
-  }
-
-  buildPatrolPath() {
-    const step = 160
-    this.patrolPath = [
-      { x: this.originX,            y: this.originY - step / 2 },
-      { x: this.originX + step / 2, y: this.originY },
-      { x: this.originX,            y: this.originY + step / 2 },
-      { x: this.originX - step / 2, y: this.originY },
-    ]
-    this.currentPoint = 0
+    this.viewRadius = 220 // самый «зрячий»
   }
 }
