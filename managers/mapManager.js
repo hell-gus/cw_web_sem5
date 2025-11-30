@@ -25,6 +25,20 @@ export class mapManager {
 
   // ---------- загрузка карты ----------
   loadMap(path) {
+    // СБРОС состояния перед загрузкой новой карты
+    this.mapData = null;
+    this.tLayer = null;
+    this.xCount = 0;
+    this.yCount = 0;
+    this.mapSize = { x: 0, y: 0 };
+
+    this.tilesets = [];
+    this.imgLoadCount = 0;
+    this.imgLoaded = false;
+    this.jsonLoaded = false;
+
+    this.objects = [];
+
     const request = new XMLHttpRequest();
 
     request.onreadystatechange = () => {
@@ -95,7 +109,7 @@ export class mapManager {
       }
     }
 
-    // кеш "сырых" объектов (если нужно отдельно)
+    // кеш объектов (сырые объекты из карты)
     this.objects = [];
     for (const layer of this.mapData.layers) {
       if (layer.type === 'objectgroup') {
@@ -217,8 +231,6 @@ export class mapManager {
   }
 
   // ---------- objectgroup-слои / сущности ----------
-  // ---------- objectgroup-слои / сущности ----------
-  // ---------- objectgroup-слои / сущности ----------
   parseEntities() {
     // ждём, пока карта и тайлы реально загрузились
     if (!this.imgLoaded || !this.jsonLoaded || !this.gameManager) {
@@ -229,7 +241,7 @@ export class mapManager {
     const gm = this.gameManager;
     if (!gm.factory) return;
 
-    // очищаем кеш объектов и наполняем заново
+    // очищаем кеш объектов и наполняем заново уже "живыми" сущностями
     this.objects = [];
 
     for (const layer of this.mapData.layers) {
@@ -261,7 +273,6 @@ export class mapManager {
           // имя из Tiled
           if (e.name) {
             obj.name = e.name;
-            // если у объекта есть поле spriteName — считаем, что хотим таким же именем
             if ('spriteName' in obj) {
               obj.spriteName = e.name;
             }
@@ -298,8 +309,6 @@ export class mapManager {
       }
     }
   }
-
-
 
   // ---------- получить gid тайла по мировым координатам ----------
   getTilesetId(x, y) {

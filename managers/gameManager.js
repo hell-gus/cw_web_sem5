@@ -39,9 +39,9 @@ export class GameManager {
     this.keysCollected = 0
 
     // уровни
-    this.canvasId = null          // какой canvas используем
-    this.currentConfig = null     // конфиг текущего уровня
-    this.nextLevelConfig = null   // конфиг следующего уровня
+    this.canvasId = null
+    this.currentConfig = null
+    this.nextLevelConfig = null
 
     // состояние выхода
     this.exitUnlocked = false
@@ -59,7 +59,7 @@ export class GameManager {
 
     this.ctx = this.canvas.getContext('2d')
 
-    // сброс внутреннего состояния при запуске уровня
+    // ---------- сброс состояния уровня ----------
     this.entities = []
     this.laterKill = []
     this.player = null
@@ -68,11 +68,10 @@ export class GameManager {
     this.lastTimestamp = 0
     this.exitUnlocked = false
 
-    // игрок / уровень
+    // счёт и имя
     if (!config || !config.keepScore) {
       this.score = 0
     }
-
     if (config && config.playerName) {
       this.playerName = config.playerName
     }
@@ -82,18 +81,34 @@ export class GameManager {
         ? config.level
         : this.level || 1
 
-    // ключи можно переопределить через config
+    // ключи
     this.keysTotal =
       config && typeof config.keysTotal === 'number'
         ? config.keysTotal
         : 5
     this.keysCollected = 0
 
-    // запоминаем конфиг следующего уровня, если передали
+    // след. уровень
     this.nextLevelConfig =
       config && config.nextLevelConfig ? config.nextLevelConfig : null
 
-    // окно просмотра карты
+    // ---------- СБРОС состояния mapManager перед новой картой ----------
+    if (this.mapManager) {
+      this.mapManager.mapData = null
+      this.mapManager.tLayer = null
+      this.mapManager.xCount = 0
+      this.mapManager.yCount = 0
+      this.mapManager.mapSize = { x: 0, y: 0 }
+
+      this.mapManager.tilesets = []
+      this.mapManager.imgLoadCount = 0
+      this.mapManager.imgLoaded = false
+      this.mapManager.jsonLoaded = false
+
+      this.mapManager.objects = []
+    }
+
+    // окно просмотра (камера)
     this.mapManager.view = {
       x: 0,
       y: 0,
@@ -101,37 +116,38 @@ export class GameManager {
       h: this.canvas.height,
     }
 
-    // даём карте доступ к gameManager
     if (typeof this.mapManager.setGameManager === 'function') {
       this.mapManager.setGameManager(this)
     }
 
-    // карта + спрайты
+    // ---------- карта + спрайты ----------
+    // после сброса флагов jsonLoaded/imgLoaded они будут false,
+    // пока реально не загрузится НОВЫЙ json и картинки
     this.mapManager.loadMap(config.map)
     this.spriteManager.loadAtlas(config.atlasJson, config.atlasImg)
 
     // управление
     this.eventsManager.setup(this.canvas)
 
-    // физика
-    this.physicManager.setManager(this, this.mapManager)
+    // физика: перед новым уровнем обнуляем кэш стен
+    if (this.physicManager) {
+      if (typeof this.physicManager.resetCollisionCache === 'function') {
+        this.physicManager.resetCollisionCache()
+      }
+      this.physicManager.setManager(this, this.mapManager)
+    }
 
     // ---------- фабрика сущностей ----------
-
-    // игрок — создаём вручную
     this.factory['Player'] = Player
     this.factory['player'] = Player
 
-    // бонус (вкусняшка)
     this.factory['Bonus'] = Bonus
     this.factory['bonus'] = Bonus
     this.factory['cake'] = Bonus
 
-    // ключ
     this.factory['Key'] = Key
     this.factory['key'] = Key
 
-    // враги — три типа
     this.factory['Enemy1'] = Enemy1
     this.factory['enemy1'] = Enemy1
 
@@ -141,26 +157,19 @@ export class GameManager {
     this.factory['Enemy3'] = Enemy3
     this.factory['enemy3'] = Enemy3
 
-    // если в Tiled type = "Enemy" — пусть будет Enemy2
     this.factory['Enemy'] = Enemy2
     this.factory['enemy'] = Enemy2
 
-    // выход
     this.factory['Exit'] = Exit
     this.factory['exit'] = Exit
 
-    // ---------- создаём игрока вручную ----------
+    // ---------- создаём игрока (позицию задаст initSpawnFromMap) ----------
     const p = new Player()
-    p.pos_x =
-      config && typeof config.startX === 'number'
-        ? config.startX
-        : 100
-    p.pos_y =
-      config && typeof config.startY === 'number'
-        ? config.startY
-        : 100
 
-    // хитбокс кота
+    // временно 0,0 — настоящие координаты поставим после загрузки карты
+    p.pos_x = 0
+    p.pos_y = 0
+
     p.size_x = 24
     p.size_y = 24
 
@@ -170,7 +179,6 @@ export class GameManager {
         ? config.playerSprite
         : 'cat'
 
-    // ссылки на менеджеры
     p.eventsManager = this.eventsManager
     p.physicManager = this.physicManager
     p.spriteManager = this.spriteManager
@@ -195,13 +203,8 @@ export class GameManager {
   }
 
   onKeyCollected(keyEntity) {
-    // защита от повторного учёта одного и того же ключа
-    if (keyEntity && keyEntity._collected) {
-      return
-    }
-    if (keyEntity) {
-      keyEntity._collected = true
-    }
+    if (keyEntity && keyEntity._collected) return
+    if (keyEntity) keyEntity._collected = true
 
     if (this.keysCollected < this.keysTotal) {
       this.keysCollected += 1
@@ -217,8 +220,6 @@ export class GameManager {
   onPlayerDied() {
     console.log('Игрок погиб')
     if (typeof window !== 'undefined') {
-      // можно сделать рестарт уровня вместо reload:
-      // this.init(this.canvasId, { ...this.currentConfig, keepScore: false })
       window.location.reload()
     }
   }
@@ -228,7 +229,6 @@ export class GameManager {
     console.log('Выход разблокирован')
   }
 
-  // кот коснулся объекта Exit → пробуем перейти
   handleExitTouch(exitEntity) {
     if (!exitEntity) return
     this.tryExit()
@@ -243,7 +243,6 @@ export class GameManager {
     this.goToNextLevel()
   }
 
-  // переход на следующий уровень без level2.html
   goToNextLevel() {
     if (!this.nextLevelConfig) {
       console.warn('nextLevelConfig не задан — следующего уровня нет')
@@ -253,14 +252,14 @@ export class GameManager {
     const cfg = {
       ...this.nextLevelConfig,
       playerName: this.playerName,
-      keepScore: true, // сохраняем счёт
+      keepScore: true,
     }
 
     this.level += 1
     this.init(this.canvasId, cfg)
   }
 
-  // спавн игрока по объекту Cat/Player с карты (только координаты)
+  // спавн игрока
   initSpawnFromMap() {
     if (!this.mapManager || !this.mapManager.mapData || !this.player) return
 
@@ -271,7 +270,6 @@ export class GameManager {
 
       const layerOffsetX = layer.offsetx || 0
       const layerOffsetY = layer.offsety || 0
-
       const objects = layer.objects || []
 
       for (const obj of objects) {
@@ -301,6 +299,21 @@ export class GameManager {
       }
     }
 
+    // если Cat/Player на карте не нашли — fallback на конфиг
+    if (
+      this.currentConfig &&
+      typeof this.currentConfig.startX === 'number' &&
+      typeof this.currentConfig.startY === 'number'
+    ) {
+      this.player.pos_x = this.currentConfig.startX
+      this.player.pos_y = this.currentConfig.startY
+      console.log('Spawn игрока по startX/startY из config')
+    } else {
+      this.player.pos_x = 32
+      this.player.pos_y = 32
+      console.warn('На карте нет Cat/Player и нет startX/startY — спавним в (32,32)')
+    }
+
     this.spawnFromMapDone = true
   }
 
@@ -308,13 +321,12 @@ export class GameManager {
   update(dt) {
     if (!this.player) return
 
-    // ждём, пока карта загрузится, чтобы сдвинуть кота на точку спауна
+    // спавн игрока только ПОСЛЕ загрузки json новой карты
     if (!this.spawnFromMapDone && this.mapManager && this.mapManager.jsonLoaded) {
       this.initSpawnFromMap()
     }
 
-    // создаём сущности из objectgroup слоёв ОДИН РАЗ,
-    // когда и json, и картинки карты уже загружены
+    // парсим объекты карты только ПОСЛЕ полной загрузки json + картинок новой карты
     if (
       !this.entitiesFromMapDone &&
       this.mapManager &&
@@ -326,8 +338,6 @@ export class GameManager {
       }
       this.entitiesFromMapDone = true
 
-      // на случай, если parseEntities создал ещё одного Player —
-      // оставляем только того, кто в this.player
       this.entities = this.entities.filter((e) => {
         if (e instanceof Player && e !== this.player) {
           return false
@@ -335,8 +345,6 @@ export class GameManager {
         return true
       })
 
-      // фикс для Exit: если parseEntities переопределил spriteName = "Exit",
-      // возвращаем нормальный кадр из атласа ("Ex1")
       this.entities.forEach((e) => {
         if (e instanceof Exit) {
           if (!e.spriteName || e.spriteName === 'Exit' || e.spriteName === 'exit') {
@@ -346,7 +354,6 @@ export class GameManager {
       })
     }
 
-    // обновляем все сущности
     this.entities.forEach((e) => {
       if (typeof e.update === 'function') {
         try {
@@ -357,7 +364,6 @@ export class GameManager {
       }
     })
 
-    // отложенное удаление
     if (this.laterKill.length) {
       this.laterKill.forEach((obj) => {
         const idx = this.entities.indexOf(obj)
@@ -399,7 +405,6 @@ export class GameManager {
 
     this.mapManager.draw(this.ctx)
 
-    // дебаг-коллайдеры, если включено
     if (
       this.physicManager &&
       this.physicManager.debugDraw &&
