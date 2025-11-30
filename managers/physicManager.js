@@ -8,161 +8,39 @@ const GID_MASK = 0x1FFFFFFF
 // только слой Collision
 const COLLISION_LAYER_NAMES = ['Collision']
 
+// тайлсеты, которые по умолчанию считаем "твёрдыми" (стены),
+// если на тайле нет collides:false
+const SOLID_TILESET_NAMES = [
+  'TX Tileset Wall',
+  'TX Struct',
+  'mainlevbuild_32x32',
+]
+
 export class PhysicManager {
   constructor() {
     this.gameManager = null
     this.mapManager = null
 
-    this.collisionLayers = null          // массив слоёв-тайлов
-    this.tileColliders = {}              // firstgid -> { firstgid, tiles: {localId: [rects...] } }
-
-    // набор gid, которые считаем "тайл целиком стена"
-    this.fullTileGids = new Set()
-    // набор gid, которые явно НЕ стена (collides:false)
-    this.nonSolidGids = new Set()
-
+    // кэш больше НЕ используем
     this.debugDraw = true
   }
 
   setManager(gameManager, mapManager) {
     this.gameManager = gameManager
     this.mapManager = mapManager
-    this.resetCollisionCache()
   }
 
+  // заглушка — вдруг где-то вызывается
   resetCollisionCache() {
-    this.collisionLayers = null
-    this.tileColliders = {}
-    this.fullTileGids = new Set()
-    this.nonSolidGids = new Set()
+    // больше ничего не кешируем, оставляем пустым
   }
 
-  ensureCollisionLayers() {
-    if (!this.mapManager || !this.mapManager.mapData) return
-    if (this.collisionLayers) return
-
-    this.collisionLayers = this.mapManager.mapData.layers.filter(
+  // каждый раз берём актуальный список collision-слоёв из текущей карты
+  getCollisionLayers() {
+    if (!this.mapManager || !this.mapManager.mapData) return []
+    return this.mapManager.mapData.layers.filter(
       (l) => l.type === 'tilelayer' && COLLISION_LAYER_NAMES.includes(l.name),
     )
-  }
-
-  // строим локальные прямоугольники-коллайдеры для всех тайлсетов
-  ensureTileColliders() {
-    if (!this.mapManager || !this.mapManager.mapData) return
-    if (Object.keys(this.tileColliders).length) return
-
-    const mapData = this.mapManager.mapData
-
-    // 1. Разбираем tilesets: objectgroup, collides:true / collides:false
-    for (const ts of mapData.tilesets) {
-      if (!ts.tiles) continue
-
-      const tiles = {}
-      const tileW = ts.tilewidth || this.mapManager.tSize.x
-      const tileH = ts.tileheight || this.mapManager.tSize.y
-
-      for (const tile of ts.tiles) {
-        const rects = []
-        const localId = tile.id
-        const globalGid = ts.firstgid + localId
-
-        // --- objectgroup: частичные прямоугольники ---
-        if (tile.objectgroup && Array.isArray(tile.objectgroup.objects)) {
-          for (const obj of tile.objectgroup.objects) {
-            if (!obj) continue
-            if (obj.width <= 0 || obj.height <= 0) continue
-
-            let collFlag = false
-            if (Array.isArray(obj.properties)) {
-              for (const p of obj.properties) {
-                if (
-                  (p.name === 'collides' || p.name === 'collieds') &&
-                  p.value === true
-                ) {
-                  collFlag = true
-                  break
-                }
-              }
-            }
-            if (!collFlag) continue
-
-            rects.push({
-              x: obj.x,
-              y: obj.y,
-              w: obj.width,
-              h: obj.height,
-            })
-          }
-        }
-
-        // свойство collides на самом тайле
-        let collidesProp = null
-        if (Array.isArray(tile.properties)) {
-          const prop = tile.properties.find((p) => p.name === 'collides')
-          if (prop) collidesProp = !!prop.value
-        }
-
-        if (rects.length) {
-          // есть вручную нарисованные хитбоксы — используем их
-          tiles[localId] = rects
-        } else if (collidesProp === true) {
-          // тайл целиком стена 32×32
-          this.fullTileGids.add(globalGid)
-        } else if (collidesProp === false) {
-          // явно НЕ стена
-          this.nonSolidGids.add(globalGid)
-        }
-      }
-
-      if (Object.keys(tiles).length) {
-        this.tileColliders[ts.firstgid] = {
-          firstgid: ts.firstgid,
-          tiles,
-        }
-      }
-    }
-
-    // 2. Всё, что стоит на слое Collision и не помечено collides:false
-    //    и не имеет своих хитбоксов — считаем тайлом-стеной 32×32
-    this.ensureCollisionLayers()
-    if (!this.collisionLayers) return
-
-    const tileW = mapData.tilewidth
-    const tileH = mapData.tileheight
-
-    for (const layer of this.collisionLayers) {
-      const data = layer.data || []
-      const w = layer.width
-
-      for (let index = 0; index < data.length; index++) {
-        const rawGid = data[index]
-        if (!rawGid) continue
-        const gid = rawGid & GID_MASK
-        if (!gid) continue
-
-        if (this.nonSolidGids.has(gid)) continue
-
-        // есть ли уже частичный коллайдер для этого gid?
-        const ts = this.getTilesetByGid(gid)
-        if (ts) {
-          const collEntry = this.tileColliders[ts.firstgid]
-          const localId =
-            collEntry && typeof collEntry.firstgid === 'number'
-              ? gid - collEntry.firstgid
-              : null
-          const rects =
-            collEntry && localId != null ? collEntry.tiles[localId] : null
-
-          if (rects && rects.length) {
-            // уже есть хитбоксы — ничего не добавляем
-            continue
-          }
-        }
-
-        // если сюда дошли — делаем этот gid "полным" тайлом-стеной
-        this.fullTileGids.add(gid)
-      }
-    }
   }
 
   getTilesetByGid(gid) {
@@ -176,7 +54,16 @@ export class PhysicManager {
     return chosen
   }
 
-  // вернуть мировые прямоугольники-коллайдеры для одного тайла
+  // найти описание тайла по localId
+  getTileDef(ts, localId) {
+    if (!ts || !Array.isArray(ts.tiles)) return null
+    for (const tile of ts.tiles) {
+      if (tile.id === localId) return tile
+    }
+    return null
+  }
+
+  // вернуть МИРОВЫЕ прямоугольники коллизии для одного тайла
   getCollRectsForTile(rawGid, tileX, tileY) {
     if (!rawGid) return null
     const gid = rawGid & GID_MASK
@@ -186,41 +73,88 @@ export class PhysicManager {
     if (!ts) return null
 
     const tSize = this.mapManager.tSize
-
-    let rects = null
-
-    // 1) пробуем найти частичные хитбоксы из tileset.tiles[].objectgroup
-    const collEntry = this.tileColliders[ts.firstgid]
-    if (collEntry) {
-      const localId = gid - collEntry.firstgid
-      rects = collEntry.tiles[localId] || null
-    }
-
-    // 2) если нет частичных, но gid в fullTileGids — берём весь тайл 32×32
-    if ((!rects || !rects.length) && this.fullTileGids.has(gid)) {
-      rects = [{ x: 0, y: 0, w: tSize.x, h: tSize.y }]
-    }
-
-    if (!rects || !rects.length) return null
-
     const baseX = tileX * tSize.x
     const baseY = tileY * tSize.y
 
-    // переводим в мировые координаты
-    return rects.map((r) => ({
-      x: baseX + r.x,
-      y: baseY + r.y,
-      w: r.w,
-      h: r.h,
-    }))
+    const localId = gid - ts.firstgid
+    const tileDef = this.getTileDef(ts, localId)
+
+    // 1) objectgroup с collides/collieds = true → берём ЭТИ прямоугольники
+    if (tileDef && tileDef.objectgroup && Array.isArray(tileDef.objectgroup.objects)) {
+      const rects = []
+
+      for (const obj of tileDef.objectgroup.objects) {
+        if (!obj) continue
+        if (obj.width <= 0 || obj.height <= 0) continue
+
+        let collFlag = false
+        if (Array.isArray(obj.properties)) {
+          for (const p of obj.properties) {
+            if (
+              (p.name === 'collides' || p.name === 'collieds') &&
+              p.value === true
+            ) {
+              collFlag = true
+              break
+            }
+          }
+        }
+        if (!collFlag) continue
+
+        rects.push({
+          x: baseX + obj.x,
+          y: baseY + obj.y,
+          w: obj.width,
+          h: obj.height,
+        })
+      }
+
+      if (rects.length) {
+        return rects
+      }
+    }
+
+    // 2) свойства collides / collides:false / collides:true
+    let hasCollidesFalse = false
+    let hasCollidesTrue = false
+    if (tileDef && Array.isArray(tileDef.properties)) {
+      for (const p of tileDef.properties) {
+        if (p.name === 'collides' && p.value === false) {
+          hasCollidesFalse = true
+        }
+        if (p.name === 'collides' && p.value === true) {
+          hasCollidesTrue = true
+        }
+      }
+    }
+
+    // collides:false → нет коллизии, даже если тайлсет "твёрдый"
+    if (hasCollidesFalse) {
+      return null
+    }
+
+    // 3) collides:true ИЛИ тайл из "твёрдого" тайлсета → весь тайл 32x32 стена
+    const isSolidTileset = SOLID_TILESET_NAMES.includes(ts.name)
+    if (hasCollidesTrue || isSolidTileset) {
+      return [
+        {
+          x: baseX,
+          y: baseY,
+          w: tSize.x,
+          h: tSize.y,
+        },
+      ]
+    }
+
+    // иначе — нет коллизии
+    return null
   }
 
   isSolidAt(worldX, worldY) {
     if (!this.mapManager || !this.mapManager.mapData) return false
 
-    this.ensureCollisionLayers()
-    this.ensureTileColliders()
-    if (!this.collisionLayers || !this.collisionLayers.length) return false
+    const collisionLayers = this.getCollisionLayers()
+    if (!collisionLayers.length) return false
 
     const tSize = this.mapManager.tSize
     const xCount = this.mapManager.xCount
@@ -236,7 +170,7 @@ export class PhysicManager {
 
     const index = tileY * xCount + tileX
 
-    for (const layer of this.collisionLayers) {
+    for (const layer of collisionLayers) {
       const data = layer.data
       if (!data || index < 0 || index >= data.length) continue
 
@@ -261,13 +195,12 @@ export class PhysicManager {
     return false
   }
 
-  // рисуем красным только реальные прямоугольники-коллайдеры
+  // рисуем красным реальные прямоугольники коллизий
   drawDebugColliders(ctx) {
     if (!ctx || !this.mapManager || !this.mapManager.mapData) return
 
-    this.ensureCollisionLayers()
-    this.ensureTileColliders()
-    if (!this.collisionLayers || !this.collisionLayers.length) return
+    const collisionLayers = this.getCollisionLayers()
+    if (!collisionLayers.length) return
 
     const tSize = this.mapManager.tSize
     const xCount = this.mapManager.xCount
@@ -285,7 +218,7 @@ export class PhysicManager {
         const index = ty * xCount + tx
         let rectsWorld = null
 
-        for (const layer of this.collisionLayers) {
+        for (const layer of collisionLayers) {
           const data = layer.data
           if (!data || index < 0 || index >= data.length) continue
 
@@ -318,7 +251,14 @@ export class PhysicManager {
   }
 
   isRectColliding(x, y, w, h) {
-    if (!this.mapManager || !this.mapManager.tSize) return false
+    // если карта ещё не загружена – считаем, что всё проходимо
+    if (
+      !this.mapManager ||
+      !this.mapManager.mapData ||
+      this.mapManager.jsonLoaded === false
+    ) {
+      return false
+    }
 
     const pad = 2
 
