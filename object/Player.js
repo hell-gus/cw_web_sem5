@@ -6,15 +6,21 @@ export class Player extends Entity {
     super()
 
     this.name = 'player'
-    this.lifetime = 100
 
     // движение
     this.move_x = 0
     this.move_y = 0
 
     // жизни
-    this.lives = 3
-    this.maxLives = 3
+    this.lives = 3          // текущее число жизней
+    this.maxLives = 3       // максимум жизней
+
+    // флаг смерти
+    this.isDead = false
+
+    // "неуязвимость" после удара, чтобы не сносило все жизни за один кадр
+    this.invulnTimer = 0        // сколько ещё секунд нельзя получать урон
+    this.invulnDuration = 1.0   // 1 секунда неуязвимости после удара
 
     // скорость
     this.baseSpeed = 200
@@ -37,6 +43,7 @@ export class Player extends Entity {
 
   update(dt) {
     if (!this.eventsManager || !this.physicManager) return
+    if (this.isDead) return
 
     const a = this.eventsManager.action || {}
 
@@ -62,6 +69,12 @@ export class Player extends Entity {
         this.speedBoostTimer = 0
         this.speed = this.baseSpeed
       }
+    }
+
+    // таймер неуязвимости
+    if (this.invulnTimer > 0) {
+      this.invulnTimer -= dt
+      if (this.invulnTimer < 0) this.invulnTimer = 0
     }
 
     // движение + столкновения со стенами
@@ -115,19 +128,48 @@ export class Player extends Entity {
   }
 
   onTouchEntity(obj) {
-    if (!obj) return
+    if (!obj || this.isDead) return
 
-    // враги
-    if (obj.name === 'Enemy1' || obj.name === 'Enemy2' || obj.name === 'Enemy3') {
-      this.lifetime -= 10
-      // тут можно уменьшать жизни, показывать анимацию и т.п.
+    // враги по имени
+    const isEnemy =
+      obj.name === 'Enemy1' ||
+      obj.name === 'Enemy2' ||
+      obj.name === 'Enemy3' ||
+      obj.type === 'Enemy'
+
+    if (isEnemy) {
+      // если ещё действует неуязвимость — урон не получаем
+      if (this.invulnTimer > 0) return
+
+      // получаем урон: -1 жизнь
+      this.lives -= 1
+      if (this.lives < 0) this.lives = 0
+
+      // включаем неуязвимость на секунду
+      this.invulnTimer = this.invulnDuration
+
+      console.log(`Кот получил урон, жизни: ${this.lives}/${this.maxLives}`)
+
+      // если жизни закончились — смерть
+      if (this.lives <= 0) {
+        this.isDead = true
+        if (this.gameManager && typeof this.gameManager.onPlayerDied === 'function') {
+          this.gameManager.onPlayerDied()
+        }
+      }
     }
   }
 
-  onTouchMap(tileIndex) {}
+  onTouchMap(tileIndex) {
+    // если нужно — можно обрабатывать урон от ловушек / шипов и т.п.
+  }
 
   kill() {
-    this.lifetime = 0
+    this.lives = 0
+    this.isDead = true
+    if (this.gameManager && typeof this.gameManager.onPlayerDied === 'function') {
+      this.gameManager.onPlayerDied()
+    }
   }
 
   // применить ускорение от вкусняшки
