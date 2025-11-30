@@ -43,6 +43,9 @@ export class Player extends Entity {
     // смещение спрайта, чтобы лапы не залезали на стену
     this.spriteOffsetX = 0
     this.spriteOffsetY = -6
+
+    // направление взгляда: 1 — вправо, -1 — влево
+    this.facing = 1
   }
 
   update(dt) {
@@ -65,6 +68,15 @@ export class Player extends Entity {
       this.move_x *= k
       this.move_y *= k
     }
+
+    // обновляем направление только по горизонтали
+    if (this.move_x > 0) {
+      this.facing = 1   // вправо
+    } else if (this.move_x < 0) {
+      this.facing = -1  // влево
+    }
+    // если move_x === 0, facing не меняем → при движении вверх/вниз
+    // кот смотрит в последнюю горизонтальную сторону
 
     // таймер ускорения
     if (this.speedBoostTimer > 0) {
@@ -115,7 +127,6 @@ export class Player extends Entity {
       (this.gameManager && this.gameManager.spriteManager) ||
       null
 
-    // если спрайт найден — рисуем кота
     if (sm && this.spriteName && typeof sm.getSprite === 'function') {
       const sprite = sm.getSprite(this.spriteName)
       if (sprite) {
@@ -126,12 +137,18 @@ export class Player extends Entity {
           ctx.globalAlpha = 0.6
         }
 
-        sm.drawSprite(
-          ctx,
-          this.spriteName,
-          this.pos_x + this.spriteOffsetX,
-          this.pos_y + this.spriteOffsetY,
-        )
+        const x = this.pos_x + this.spriteOffsetX
+        const y = this.pos_y + this.spriteOffsetY
+
+        if (this.facing === -1) {
+          // смотрит влево — зеркалим по X
+          ctx.translate(x + sprite.w, y)
+          ctx.scale(-1, 1)
+          sm.drawSprite(ctx, this.spriteName, 0, 0)
+        } else {
+          // смотрит вправо — как обычно
+          sm.drawSprite(ctx, this.spriteName, x, y)
+        }
 
         ctx.restore()
         return
