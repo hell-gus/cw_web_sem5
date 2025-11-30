@@ -22,7 +22,7 @@ export class PhysicManager {
     this.mapManager = null
 
     // кэш больше НЕ используем
-    this.debugDraw = true
+    this.debugDraw = false
   }
 
   setManager(gameManager, mapManager) {

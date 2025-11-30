@@ -5,35 +5,37 @@ console.log('level1.js загружен')
 
 const gm = new GameManager()
 
-// имя игрока берём из localStorage (его кладёт login.html)
 let playerName = 'Игрок'
 try {
   const stored = localStorage.getItem('catGamePlayerName')
   if (stored) playerName = stored
 } catch (e) {}
 
-// ИГРА: первый уровень + конфиг второго
 gm.init('game', {
   map: './level1.json',
 
-  // атлас анимации кота: JSON тот же, а картинка — Cat.png
   atlasJson: './img/cat_ginger_atlas.json',
   atlasImg: './img/Cat.png',
   playerSprite: 'cat_ginger_1',
 
   playerName,
   level: 1,
+
+  // на ПЕРВОМ уровне 5 ключей
+  keysTotal: 5,
   keepScore: false,
 
-  // конфиг второго уровня
+  // -------- ВТОРОЙ УРОВЕНЬ --------
   nextLevelConfig: {
     map: './level2.json',
     atlasJson: './img/cat_ginger_atlas.json',
     atlasImg: './img/Cat.png',
     playerSprite: 'cat_ginger_1',
     level: 2,
-    // если нужно иное число ключей на 2 уровне:
-    // keysTotal: 3,
+
+    // на ВТОРОМ уровне 7 ключей
+    keysTotal: 7,
+    keepScore: true,
   },
 })
 
