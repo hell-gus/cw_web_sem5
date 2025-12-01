@@ -1,88 +1,83 @@
 // managers/soundManager.js
 export class SoundManager {
   constructor() {
-    // AudioContext
-    const AudioCtx = window.AudioContext || window.webkitAudioContext
-    this.context = AudioCtx ? new AudioCtx() : null
-
-    this.gainNode = null
-    this.clips = {} // path -> { buffer, loaded, playing }
-
-    if (this.context) {
-      this.gainNode = this.context.createGain()
-      this.gainNode.connect(this.context.destination)
-    }
+    this.sounds = {}
+    this.masterVolume = 0.8
+    this.initialized = false
   }
 
-  // загрузка звука
-  load(path, callback) {
-    if (!this.context) return
+  init() {
+    if (this.initialized) return
+    this.initialized = true
 
-    const existing = this.clips[path]
-    if (existing && existing.loaded) {
-      callback && callback(existing)
+    // тут жёстко прописываем все твои файлы
+    const manifest = {
+      key_pickup: './sounds/key_pickup.mp3',
+      cake_pickup: './sounds/cake_pickup.mp3',
+      cat_hit: './sounds/cat_hit.mp3',
+      game_over: './sounds/game_over.mp3',
+
+      level_complete: './sounds/level_complete.mp3', // после 1 уровня
+      win: './sounds/win.mp3',                       // финальная победа
+
+      level1: './sounds/level1.mp3', // фон 1 уровня
+      level2: './sounds/level2.mp3', // фон 2 уровня
+    }
+
+    this.sounds = {}
+
+    Object.entries(manifest).forEach(([name, src]) => {
+      const audio = new Audio(src)
+      audio.preload = 'auto'
+
+      // фон тише и по кругу
+      if (name === 'level1' || name === 'level2') {
+        audio.loop = true
+        audio.volume = 0.35
+      } else {
+        audio.loop = false
+        audio.volume = 0.8
+      }
+
+      this.sounds[name] = audio
+    })
+  }
+
+  play(name) {
+    const base = this.sounds[name]
+    if (!base) return
+
+    // фоновая музыка — один экземпляр
+    if (name === 'level1' || name === 'level2') {
+      try {
+        base.currentTime = 0
+        base.play()
+      } catch (e) {
+        console.warn('Не удалось проиграть музыку', name, e)
+      }
       return
     }
 
-    const clip = {
-      path,
-      buffer: null,
-      loaded: false,
-      play: (volume = 1, loop = false) => {
-        this.play(path, { volume, loop })
-      },
+    // короткие эффекты — клонируем, чтобы могли накладываться
+    try {
+      const clone = base.cloneNode()
+      clone.volume = base.volume
+      clone.play()
+    } catch (e) {
+      console.warn('Не удалось проиграть звук', name, e)
     }
-    this.clips[path] = clip
-
-    const request = new XMLHttpRequest()
-    request.open('GET', path, true)
-    request.responseType = 'arraybuffer'
-
-    request.onload = () => {
-      this.context.decodeAudioData(
-        request.response,
-        (buffer) => {
-          clip.buffer = buffer
-          clip.loaded = true
-          callback && callback(clip)
-        },
-        (err) => {
-          console.error('decodeAudioData error', err)
-        },
-      )
-    }
-
-    request.send()
   }
 
-  // проигрывание
-  play(path, options = {}) {
-    if (!this.context) return
+  stop(name) {
+    const s = this.sounds[name]
+    if (!s) return
+    s.pause()
+    s.currentTime = 0
+  }
 
-    const { volume = 1, loop = false } = options
-    const clip = this.clips[path]
-
-    const playImpl = (c) => {
-      const source = this.context.createBufferSource()
-      source.buffer = c.buffer
-      source.loop = !!loop
-
-      const gainNode = this.gainNode || this.context.createGain()
-      gainNode.gain.value = volume
-      source.connect(gainNode)
-
-      if (!this.gainNode) {
-        gainNode.connect(this.context.destination)
-      }
-
-      source.start(0)
-    }
-
-    if (!clip || !clip.loaded) {
-      // если ещё не загружен — загрузим и сразу проиграем
-      this.load(path, (c) => playImpl(c))
-    } else {
-      playImpl(clip)
-    }
+  stopAll() {
+    Object.values(this.sounds).forEach((a) => {
+      a.pause()
+    })
   }
 }

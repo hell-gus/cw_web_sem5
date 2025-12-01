@@ -3,6 +3,7 @@ import { mapManager } from './mapManager.js'
 import { SpriteManager } from './spriteManager.js'
 import { EventsManager } from './eventsManager.js'
 import { PhysicManager } from './physicManager.js'
+import { SoundManager } from './soundManager.js'
 
 import { Player } from '../object/Player.js'
 import { Bonus } from '../object/Bonus.js'
@@ -19,6 +20,7 @@ export class GameManager {
     this.spriteManager = new SpriteManager()
     this.eventsManager = new EventsManager()
     this.physicManager = new PhysicManager()
+    this.soundManager = new SoundManager()
 
     this.factory = {}
     this.entities = []
@@ -48,6 +50,9 @@ export class GameManager {
 
     // игра уже завершена / рекорд сохранён
     this.gameFinished = false
+
+    // флаг инициализации звуков
+    this._soundInitDone = false
   }
 
   init(canvasId, config) {
@@ -61,6 +66,12 @@ export class GameManager {
     }
 
     this.ctx = this.canvas.getContext('2d')
+
+    // инициализируем звуки один раз
+    if (!this._soundInitDone && this.soundManager && typeof this.soundManager.init === 'function') {
+      this.soundManager.init()
+      this._soundInitDone = true
+    }
 
     // ---------- сброс состояния уровня ----------
     this.entities = []
@@ -98,6 +109,20 @@ export class GameManager {
     this.nextLevelConfig =
       config && config.nextLevelConfig ? config.nextLevelConfig : null
 
+    // ---------- музыка текущего уровня ----------
+    if (this.soundManager) {
+      // выключаем старый фон
+      this.soundManager.stop('level1')
+      this.soundManager.stop('level2')
+
+      // включаем новый фон
+      if (this.level === 1) {
+        this.soundManager.play('level1')
+      } else if (this.level === 2) {
+        this.soundManager.play('level2')
+      }
+    }
+
     // ---------- СБРОС состояния mapManager перед новой картой ----------
     if (this.mapManager) {
       this.mapManager.mapData = null
@@ -130,7 +155,6 @@ export class GameManager {
     this.mapManager.loadMap(config.map)
 
     // ---------- спрайты ----------
-    // общий атлас с ключами, тортами, врагами, выходом
     this.spriteManager.loadAtlas('./img/sprites.json', './img/sprites.png')
 
     // атлас кота (анимация игрока) из конфига
@@ -178,7 +202,6 @@ export class GameManager {
     // ---------- создаём игрока (позицию задаст initSpawnFromMap) ----------
     const p = new Player()
 
-    // временно 0,0 — настоящие координаты поставим после загрузки карты
     p.pos_x = 0
     p.pos_y = 0
 
@@ -231,14 +254,24 @@ export class GameManager {
 
   onPlayerDied() {
     console.log('Игрок погиб')
+
+    if (this.soundManager) {
+      this.soundManager.stop('level1')
+      this.soundManager.stop('level2')
+      this.soundManager.play('game_over')
+    }
+
     if (typeof window !== 'undefined') {
-      window.location.reload()
+      setTimeout(() => {
+        window.location.reload()
+      }, 400)
     }
   }
 
   unlockExit() {
     this.exitUnlocked = true
     console.log('Выход разблокирован')
+    // отдельный звук разблокировки не делаем — по заданию только level_complete / win
   }
 
   handleExitTouch(exitEntity) {
@@ -256,12 +289,17 @@ export class GameManager {
   }
 
   // ---- Сохранение рекорда и переход на страницу рекордов ----
+    // ---- Сохранение рекорда и переход на страницу рекордов ----
+    // ---- Сохранение рекорда и переход на страницу рекордов ----
   finishGame() {
-    // защита от многократного вызова (когда игрок стоит на выходе несколько кадров подряд)
-    if (this.gameFinished) {
-      return
-    }
+    if (this.gameFinished) return
     this.gameFinished = true
+
+    // просто глушим фон, но win здесь не проигрываем
+    if (this.soundManager) {
+      this.soundManager.stop('level1')
+      this.soundManager.stop('level2')
+    }
 
     try {
       const name = this.playerName || 'Игрок'
@@ -294,11 +332,12 @@ export class GameManager {
       console.error('Не удалось сохранить рекорд', e)
     }
 
-    // аккуратно формируем URL к records.html в той же папке, что и game.html
+    // сразу уходим на таблицу рекордов
     const base = window.location.href.split('#')[0].split('?')[0]
     const dir = base.substring(0, base.lastIndexOf('/') + 1)
     window.location.href = dir + 'records.html'
   }
+
 
   goToNextLevel() {
     // если следующего уровня нет — считаем, что игра пройдена
@@ -306,6 +345,11 @@ export class GameManager {
       console.log('Последний уровень пройден, переходим к таблице рекордов')
       this.finishGame()
       return
+    }
+
+    // есть второй уровень: играем короткий level_complete
+    if (this.soundManager) {
+      this.soundManager.play('level_complete')
     }
 
     const cfg = {
@@ -461,6 +505,7 @@ export class GameManager {
 
     this.mapManager.draw(this.ctx)
 
+    // если подсветка стен не нужна — можно закомментировать блок ниже:
     if (
       this.physicManager &&
       this.physicManager.debugDraw &&

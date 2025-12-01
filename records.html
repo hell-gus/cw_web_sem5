@@ -273,9 +273,21 @@
       })
     }
 
+    // ===== ЗВУК ПОБЕДЫ ПРИ ОТКРЫТИИ ТАБЛИЦЫ =====
+    function playWinSound() {
+      try {
+        const a = new Audio('./sounds/win.mp3') // путь относительно records.html
+        a.volume = 0.8
+        a.play().catch(() => {})
+      } catch (e) {
+        console.warn('Не удалось проиграть win.mp3', e)
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       render()
       setupButtons()
+      playWinSound()   // запускаем победный звук вместе с таблицей
     })
   </script>
 </body>

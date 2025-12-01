@@ -183,6 +183,11 @@ export class Player extends Entity {
       // включаем неуязвимость на секунду
       this.invulnTimer = this.invulnDuration
 
+      // звук удара по коту
+      if (gm && gm.soundManager) {
+        gm.soundManager.play('cat_hit')
+      }
+
       console.log(`Кот получил урон, жизни: ${this.lives}/${this.maxLives}`)
 
       // если жизни закончились — смерть
@@ -203,6 +208,11 @@ export class Player extends Entity {
       obj.type === 'key'
 
     if (isKey) {
+      // звук сбора ключа
+      if (gm && gm.soundManager) {
+        gm.soundManager.play('key_pickup')
+      }
+
       if (gm && typeof gm.onKeyCollected === 'function') {
         gm.onKeyCollected(obj)
       }
@@ -223,6 +233,11 @@ export class Player extends Entity {
     if (isBonus) {
       // ускорение кота, например до 280 на 3 секунды
       this.applySpeedBoost(280, 3)
+
+      // звук вкусняшки
+      if (gm && gm.soundManager) {
+        gm.soundManager.play('cake_pickup')
+      }
 
       if (gm && typeof gm.addScore === 'function') {
         gm.addScore(10)
