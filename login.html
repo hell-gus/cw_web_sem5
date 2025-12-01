@@ -79,21 +79,56 @@
       font-size: 11px;
       color: #ffb74d;
     }
-    .enter-btn {
-      width: 100%;
+
+    .buttons-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn {
+      flex: 1;
       padding: 11px 14px;
       border-radius: 10px;
       border: none;
-      background: #ff9800;
-      color: #111;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
-    .enter-btn:hover {
+
+    .btn-main {
+      background: #ff9800;
+      color: #111;
+    }
+    .btn-main:hover {
       filter: brightness(1.05);
+    }
+
+    .btn-secondary {
+      background: #2b2b2b;
+      color: #f5f5f5;
+    }
+    .btn-secondary:hover {
+      background: #363636;
+    }
+
+    .btn-ghost {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid #444;
+      background: transparent;
+      color: #ccc;
+      font-size: 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .btn-ghost:hover {
+      border-color: #ff9800;
+      color: #ffb74d;
     }
   </style>
 </head>
@@ -107,49 +142,70 @@
       </header>
 
       <section class="name-input">
-        <form id="nickname-form" action="game.html" method="get" autocomplete="off">
-          <div class="input_group">
-            <input
-              type="text"
-              id="nickname-input"
-              name="nickname"
-              class="input_group_input"
-              required
-              minlength="2"
-              maxlength="16"
-              placeholder=" "
-            />
-            <label for="nickname-input" class="input_group_label">
-              Enter your nickname
-            </label>
-          </div>
+        <div class="input_group">
+          <input
+            type="text"
+            id="nickname-input"
+            class="input_group_input"
+            required
+            minlength="2"
+            maxlength="16"
+            placeholder=" "
+          />
+          <label for="nickname-input" class="input_group_label">
+            Enter your nickname
+          </label>
+        </div>
 
-          <button type="submit" class="enter-btn">Enter the dungeon</button>
-        </form>
+        <div class="buttons-row">
+          <button type="button" id="startLevel1" class="btn btn-main">
+            Level 1
+          </button>
+          <button type="button" id="startLevel2" class="btn btn-secondary">
+            Level 2
+          </button>
+        </div>
+
+        <button type="button" id="btnRecords" class="btn-ghost">
+          Records
+        </button>
       </section>
     </section>
   </main>
 
   <script>
-    const form = document.getElementById('nickname-form');
-    const input = document.getElementById('nickname-input');
+    const input = document.getElementById('nickname-input')
+    const btnLevel1 = document.getElementById('startLevel1')
+    const btnLevel2 = document.getElementById('startLevel2')
+    const btnRecords = document.getElementById('btnRecords')
 
     // подставляем сохранённое имя, если есть
     try {
-      const saved = localStorage.getItem('catGamePlayerName');
+      const saved = localStorage.getItem('catGamePlayerName')
       if (saved) {
-        input.value = saved;
+        input.value = saved
       }
     } catch (e) {}
 
-    // сохраняем имя при входе
-    form.addEventListener('submit', () => {
-      let name = input.value.trim();
-      if (!name) name = 'Игрок';
+    // функция запуска игры на нужном уровне
+    function startGame(level) {
+      let name = input.value.trim()
+      if (!name) name = 'cat'
+
       try {
-        localStorage.setItem('catGamePlayerName', name);
+        localStorage.setItem('catGamePlayerName', name)
       } catch (e) {}
-    });
+
+      // передаём, на какой уровень заходим
+      window.location.href = `game.html?level=${level}`
+    }
+
+    btnLevel1.addEventListener('click', () => startGame(1))
+    btnLevel2.addEventListener('click', () => startGame(2))
+
+    btnRecords.addEventListener('click', () => {
+      window.location.href = 'records.html'
+    })
   </script>
 </body>
 </html>

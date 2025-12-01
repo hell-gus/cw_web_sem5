@@ -10,7 +10,7 @@ import { Bonus } from '../object/Bonus.js'
 import { Key } from '../object/Key.js'
 import { Enemy1, Enemy2, Enemy3 } from '../object/Enemy.js'
 import { Exit } from '../object/Exit.js'
-import { Barrier } from '../object/Barrier.js'   
+import { Barrier } from '../object/Barrier.js'
 
 export class GameManager {
   constructor() {
@@ -41,7 +41,7 @@ export class GameManager {
     this.keysTotal = 5
     this.keysCollected = 0
 
-    // уровни
+    // информация про текущий уровень
     this.canvasId = null
     this.currentConfig = null
     this.nextLevelConfig = null
@@ -56,6 +56,7 @@ export class GameManager {
     this._soundInitDone = false
   }
 
+  // запуск уровня
   init(canvasId, config) {
     this.canvasId = canvasId
     this.currentConfig = config || {}
@@ -68,13 +69,13 @@ export class GameManager {
 
     this.ctx = this.canvas.getContext('2d')
 
-    // инициализируем звуки один раз
+    // инициализация звуков один раз за игру
     if (!this._soundInitDone && this.soundManager && typeof this.soundManager.init === 'function') {
       this.soundManager.init()
       this._soundInitDone = true
     }
 
-    // ---------- сброс состояния уровня ----------
+    // сброс состояния уровня
     this.entities = []
     this.laterKill = []
     this.player = null
@@ -84,12 +85,12 @@ export class GameManager {
     this.exitUnlocked = false
     this.gameFinished = false
 
-    // счёт
+    // счёт (если не сохраняем, то обнуляем)
     if (!config || !config.keepScore) {
       this.score = 0
     }
 
-    // имя игрока — ТОЛЬКО из конфига
+    // имя игрока — из конфига (форма логин)
     if (config && config.playerName) {
       this.playerName = config.playerName
     }
@@ -99,7 +100,7 @@ export class GameManager {
         ? config.level
         : this.level || 1
 
-    // ключи
+    // сколько ключей надо собрать
     this.keysTotal =
       config && typeof config.keysTotal === 'number'
         ? config.keysTotal
@@ -110,7 +111,7 @@ export class GameManager {
     this.nextLevelConfig =
       config && config.nextLevelConfig ? config.nextLevelConfig : null
 
-    // ---------- музыка текущего уровня ----------
+    // музыка текущего уровня
     if (this.soundManager) {
       this.soundManager.stop('level1')
       this.soundManager.stop('level2')
@@ -122,7 +123,7 @@ export class GameManager {
       }
     }
 
-    // ---------- СБРОС состояния mapManager перед новой картой ----------
+    // сброс состояния mapManager перед новой картой
     if (this.mapManager) {
       this.mapManager.mapData = null
       this.mapManager.tLayer = null
@@ -150,15 +151,11 @@ export class GameManager {
       this.mapManager.setGameManager(this)
     }
 
-    // ---------- карта ----------
+    // карта
     this.mapManager.loadMap(config.map)
 
-    // ---------- спрайты ----------
+    // спрайты
     this.spriteManager.loadAtlas('./img/sprites.json', './img/sprites.png')
-
-    if (config && config.atlasJson && config.atlasImg) {
-      this.spriteManager.loadAtlas(config.atlasJson, config.atlasImg)
-    }
 
     // управление
     this.eventsManager.setup(this.canvas)
@@ -172,36 +169,28 @@ export class GameManager {
     }
 
     // ---------- фабрика сущностей ----------
-    this.factory['Player'] = Player
-    this.factory['player'] = Player
-
     this.factory['Bonus'] = Bonus
-    this.factory['bonus'] = Bonus
-    this.factory['cake'] = Bonus
-
     this.factory['Key'] = Key
-    this.factory['key'] = Key
 
+    // три разных класса врагов
     this.factory['Enemy1'] = Enemy1
-    this.factory['enemy1'] = Enemy1
-
     this.factory['Enemy2'] = Enemy2
-    this.factory['enemy2'] = Enemy2
-
     this.factory['Enemy3'] = Enemy3
-    this.factory['enemy3'] = Enemy3
 
+    // общий Enemy, если type = "Enemy"
     this.factory['Enemy'] = Enemy2
-    this.factory['enemy'] = Enemy2
 
+    // выход
     this.factory['Exit'] = Exit
-    this.factory['exit'] = Exit
+    this.factory['Ex1'] = Exit
+    this.factory['Ex2'] = Exit
+    this.factory['Ex3'] = Exit
+    this.factory['Ex4'] = Exit
 
-    // BARRIER (кусты-преграды)
+    // куст-преграда
     this.factory['Barrier'] = Barrier
-    this.factory['barrier'] = Barrier
 
-    // ---------- создаём игрока (позицию задаст initSpawnFromMap) ----------
+    // создаём игрока (координаты задаются позже из карты)
     const p = new Player()
 
     p.pos_x = 0
@@ -239,6 +228,7 @@ export class GameManager {
     this.laterKill.push(obj)
   }
 
+  // собрали ключ
   onKeyCollected(keyEntity) {
     if (keyEntity && keyEntity._collected) return
     if (keyEntity) keyEntity._collected = true
@@ -254,6 +244,7 @@ export class GameManager {
     }
   }
 
+  // кот проиграл
   onPlayerDied() {
     console.log('Игрок погиб')
 
@@ -263,6 +254,19 @@ export class GameManager {
       this.soundManager.play('game_over')
     }
 
+    // умерли на втором уровне — перезапускаем 2 уровень, счёт не сбрасываем
+    if (this.level === 2 && this.currentConfig) {
+      setTimeout(() => {
+        const cfg = {
+          ...this.currentConfig,
+          keepScore: true,
+        }
+        this.init(this.canvasId, cfg)
+      }, 400)
+      return
+    }
+
+    // для первого уровня — полная перезагрузка игры
     if (typeof window !== 'undefined') {
       setTimeout(() => {
         window.location.reload()
@@ -270,6 +274,7 @@ export class GameManager {
     }
   }
 
+  // открытие выхода после сбора всех ключей
   unlockExit() {
     this.exitUnlocked = true
     console.log('Выход разблокирован')
@@ -289,7 +294,7 @@ export class GameManager {
     this.goToNextLevel()
   }
 
-  // ---- Сохранение рекорда и переход на страницу рекордов ----
+  // сохранение результата и переход на страницу рекордов
   finishGame() {
     if (this.gameFinished) return
     this.gameFinished = true
@@ -372,9 +377,6 @@ export class GameManager {
       for (const obj of objects) {
         if (
           obj.type === 'Cat' ||
-          obj.type === 'cat' ||
-          obj.type === 'Player' ||
-          obj.type === 'player' ||
           obj.name === 'Cat' ||
           obj.name === 'cat'
         ) {
@@ -396,6 +398,7 @@ export class GameManager {
       }
     }
 
+    // если что-то не сработает — берём координаты из конфига
     if (
       this.currentConfig &&
       typeof this.currentConfig.startX === 'number' &&
@@ -413,14 +416,16 @@ export class GameManager {
     this.spawnFromMapDone = true
   }
 
-  // ===== логика кадра =====
+  // логика кадра
   update(dt) {
     if (!this.player) return
 
+    // ждём, пока загрузится json карты, чтобы взять стартовую позицию
     if (!this.spawnFromMapDone && this.mapManager && this.mapManager.jsonLoaded) {
       this.initSpawnFromMap()
     }
 
+    // создание сущностей из object layers
     if (
       !this.entitiesFromMapDone &&
       this.mapManager &&
@@ -432,6 +437,7 @@ export class GameManager {
       }
       this.entitiesFromMapDone = true
 
+      // удаляем лишних игроков из объектов карты
       this.entities = this.entities.filter((e) => {
         if (e instanceof Player && e !== this.player) {
           return false
@@ -439,6 +445,7 @@ export class GameManager {
         return true
       })
 
+      // у выхода дефолтный спрайт, если свой не указан
       this.entities.forEach((e) => {
         if (e instanceof Exit) {
           if (!e.spriteName || e.spriteName === 'Exit' || e.spriteName === 'exit') {
@@ -448,6 +455,7 @@ export class GameManager {
       })
     }
 
+    // обновляем все сущности
     this.entities.forEach((e) => {
       if (typeof e.update === 'function') {
         try {
@@ -458,6 +466,7 @@ export class GameManager {
       }
     })
 
+    // удаляем, что пометили на удаление
     if (this.laterKill.length) {
       this.laterKill.forEach((obj) => {
         const idx = this.entities.indexOf(obj)
@@ -467,6 +476,7 @@ export class GameManager {
     }
   }
 
+  // отрисовка счётчика жизней/ключей/очков
   drawHUD() {
     if (!this.ctx) return
     const ctx = this.ctx
@@ -490,6 +500,7 @@ export class GameManager {
     ctx.restore()
   }
 
+  // отрисовка кадра
   draw() {
     if (!this.ctx || !this.mapManager) return
 
@@ -523,6 +534,7 @@ export class GameManager {
     this.drawHUD()
   }
 
+  // игровой цикл
   loop = (timestamp) => {
     const dt = (timestamp - this.lastTimestamp) / 1000 || 0
     this.lastTimestamp = timestamp

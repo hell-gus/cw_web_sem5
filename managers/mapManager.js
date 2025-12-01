@@ -1,92 +1,92 @@
-'use strict';
+'use strict'
 
-const FLIPPED_HORIZONTALLY_FLAG = 0x80000000;
-const FLIPPED_VERTICALLY_FLAG   = 0x40000000;
-const FLIPPED_DIAGONALLY_FLAG   = 0x20000000;
-const GID_MASK                  = 0x1FFFFFFF;
+const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
+const FLIPPED_VERTICALLY_FLAG   = 0x40000000
+const FLIPPED_DIAGONALLY_FLAG   = 0x20000000
+const GID_MASK                  = 0x1FFFFFFF
 
 export class mapManager {
   constructor() {
-    this.mapData = null;          // хранение карты
-    this.tLayer = null;           // первый слой тайлов
-    this.xCount = 0;
-    this.yCount = 0;
-    this.tSize  = { x: 32, y: 32 };
-    this.mapSize = { x: 0, y: 0 };
-    this.tilesets = [];
-    this.imgLoadCount = 0;
-    this.imgLoaded = false;
-    this.jsonLoaded = false;
-    this.view = { x: 0, y: 0, w: 0, h: 0 }; // окно камеры
+    this.mapData = null        // данные карты
+    this.tLayer = null         // первый тайловый слой
+    this.xCount = 0
+    this.yCount = 0
+    this.tSize  = { x: 32, y: 32 }
+    this.mapSize = { x: 0, y: 0 }
+    this.tilesets = []
+    this.imgLoadCount = 0
+    this.imgLoaded = false
+    this.jsonLoaded = false
+    this.view = { x: 0, y: 0, w: 0, h: 0 } // окно камеры
 
-    this.gameManager = null;
-    this.objects = [];
+    this.gameManager = null
+    this.objects = []          // объекты из object-слоёв
   }
 
-  // ---------- загрузка карты ----------
+  // загрузка карты из json
   loadMap(path) {
-    // СБРОС состояния перед загрузкой новой карты
-    this.mapData = null;
-    this.tLayer = null;
-    this.xCount = 0;
-    this.yCount = 0;
-    this.mapSize = { x: 0, y: 0 };
+    // сбрасываем состояние перед новой картой
+    this.mapData = null
+    this.tLayer = null
+    this.xCount = 0
+    this.yCount = 0
+    this.mapSize = { x: 0, y: 0 }
 
-    this.tilesets = [];
-    this.imgLoadCount = 0;
-    this.imgLoaded = false;
-    this.jsonLoaded = false;
+    this.tilesets = []
+    this.imgLoadCount = 0
+    this.imgLoaded = false
+    this.jsonLoaded = false
 
-    this.objects = [];
+    this.objects = []
 
-    const request = new XMLHttpRequest();
+    const request = new XMLHttpRequest()
 
     request.onreadystatechange = () => {
       if (request.readyState === 4) {
         if (request.status === 200 || request.status === 0) {
-          this.parseMap(request.responseText);
+          this.parseMap(request.responseText)
         } else {
-          console.error(`Не удалось загрузить карту: ${path}`);
+          console.error(`Не удалось загрузить карту: ${path}`)
         }
       }
-    };
+    }
 
-    request.open('GET', path, true);
-    request.send();
+    request.open('GET', path, true)
+    request.send()
   }
 
   setGameManager(gameManager) {
-    this.gameManager = gameManager;
+    this.gameManager = gameManager
   }
 
-  // ---------- разбор JSON карты ----------
+  // разбор json карты
   parseMap(tilesJSON) {
-    this.mapData = JSON.parse(tilesJSON);
+    this.mapData = JSON.parse(tilesJSON)
 
-    this.xCount = this.mapData.width;
-    this.yCount = this.mapData.height;
+    this.xCount = this.mapData.width
+    this.yCount = this.mapData.height
 
-    this.tSize.x = this.mapData.tilewidth;
-    this.tSize.y = this.mapData.tileheight;
+    this.tSize.x = this.mapData.tilewidth
+    this.tSize.y = this.mapData.tileheight
 
-    this.mapSize.x = this.xCount * this.tSize.x;
-    this.mapSize.y = this.yCount * this.tSize.y;
+    this.mapSize.x = this.xCount * this.tSize.x
+    this.mapSize.y = this.yCount * this.tSize.y
 
-    this.tilesets = [];
-    this.imgLoadCount = 0;
-    this.imgLoaded = false;
+    this.tilesets = []
+    this.imgLoadCount = 0
+    this.imgLoaded = false
 
     for (let i = 0; i < this.mapData.tilesets.length; i++) {
-      const t = this.mapData.tilesets[i];
-      const img = new Image();
+      const t = this.mapData.tilesets[i]
+      const img = new Image()
 
       img.onload = () => {
-        this.imgLoadCount++;
+        this.imgLoadCount++
         if (this.imgLoadCount === this.tilesets.length) {
-          this.imgLoaded = true;
+          this.imgLoaded = true
         }
-      };
-      img.src = t.image;
+      }
+      img.src = t.image
 
       const ts = {
         firstgid: t.firstgid,
@@ -95,107 +95,106 @@ export class mapManager {
         xCount: Math.floor(t.imagewidth  / t.tilewidth),
         yCount: Math.floor(t.imageheight / t.tileheight),
         tSize: { x: t.tilewidth, y: t.tileheight },
-      };
-      this.tilesets.push(ts);
+      }
+      this.tilesets.push(ts)
     }
 
-    // первый тайловый слой
-    this.tLayer = null;
+    // запоминаем первый тайловый слой для getTilesetId
+    this.tLayer = null
     for (let l = 0; l < this.mapData.layers.length; l++) {
-      const layer = this.mapData.layers[l];
+      const layer = this.mapData.layers[l]
       if (layer.type === 'tilelayer') {
-        this.tLayer = layer;
-        break;
+        this.tLayer = layer
+        break
       }
     }
 
-    // кеш объектов (сырые объекты из карты)
-    this.objects = [];
+    // кеш объектов из object-слоёв
+    this.objects = []
     for (const layer of this.mapData.layers) {
       if (layer.type === 'objectgroup') {
-        const objs = layer.objects || [];
-        this.objects.push(...objs);
+        const objs = layer.objects || []
+        this.objects.push(...objs)
       }
     }
 
-    this.jsonLoaded = true;
+    this.jsonLoaded = true
   }
 
-  // ---------- проверка, является ли слой "над объектами" ----------
+  // проверка, что слой должен рисоваться поверх объектов
   isAboveLayer(layer) {
-    const props = layer.properties || [];
-    return props.some((p) => p.name === 'above' && p.value === true);
+    const props = layer.properties || []
+    return props.some((p) => p.name === 'above' && p.value === true)
   }
 
-  // ---------- отрисовка ----------
+  // отрисовка тайлов
   // mode:
-  //  - 'all'        — рисуем все слои (как раньше)
-  //  - 'background' — только слои без свойства above=true
-  //  - 'foreground' — только слои, где above=true
+  //  'all'        — все слои
+  //  'background' — только без above=true
+  //  'foreground' — только above=true
   draw(ctx, mode = 'all') {
     if (!this.imgLoaded || !this.jsonLoaded) {
-      setTimeout(() => this.draw(ctx, mode), 100);
-      return;
+      setTimeout(() => this.draw(ctx, mode), 100)
+      return
     }
 
     if (mode === 'all' || mode === 'background') {
-      // очищаем кадр только один раз — при фоновом/полном рендере
-      ctx.clearRect(0, 0, this.view.w, this.view.h);
+      ctx.clearRect(0, 0, this.view.w, this.view.h)
     }
 
     const tileLayers = this.mapData.layers.filter(
       (layer) => layer.type === 'tilelayer' && layer.visible
-    );
+    )
 
     for (const layer of tileLayers) {
-      const above = this.isAboveLayer(layer);
+      const above = this.isAboveLayer(layer)
 
-      if (mode === 'background' && above) continue;
-      if (mode === 'foreground' && !above) continue;
+      if (mode === 'background' && above) continue
+      if (mode === 'foreground' && !above) continue
 
-      const data = layer.data;
+      const data = layer.data
 
       for (let i = 0; i < data.length; i++) {
-        const rawId = data[i];
-        if (!rawId) continue;
+        const rawId = data[i]
+        if (!rawId) continue
 
-        const flippedH = (rawId & FLIPPED_HORIZONTALLY_FLAG) !== 0;
-        const flippedV = (rawId & FLIPPED_VERTICALLY_FLAG) !== 0;
-        const flippedD = (rawId & FLIPPED_DIAGONALLY_FLAG) !== 0;
+        const flippedH = (rawId & FLIPPED_HORIZONTALLY_FLAG) !== 0
+        const flippedV = (rawId & FLIPPED_VERTICALLY_FLAG) !== 0
+        const flippedD = (rawId & FLIPPED_DIAGONALLY_FLAG) !== 0
 
-        const gid = rawId & GID_MASK;
-        if (gid === 0) continue;
+        const gid = rawId & GID_MASK
+        if (gid === 0) continue
 
-        const tile = this.getTile(gid);
-        if (!tile) continue;
+        const tile = this.getTile(gid)
+        if (!tile) continue
 
-        const mapX = (i % this.xCount) * this.tSize.x;
-        const mapY = Math.floor(i / this.xCount) * this.tSize.y;
+        const mapX = (i % this.xCount) * this.tSize.x
+        const mapY = Math.floor(i / this.xCount) * this.tSize.y
 
-        if (!this.isVisible(mapX, mapY, this.tSize.x, this.tSize.y)) continue;
+        if (!this.isVisible(mapX, mapY, this.tSize.x, this.tSize.y)) continue
 
-        const screenX = mapX - this.view.x;
-        const screenY = mapY - this.view.y;
+        const screenX = mapX - this.view.x
+        const screenY = mapY - this.view.y
 
-        ctx.save();
+        ctx.save()
 
-        const cx = screenX + this.tSize.x / 2;
-        const cy = screenY + this.tSize.y / 2;
+        const cx = screenX + this.tSize.x / 2
+        const cy = screenY + this.tSize.y / 2
 
-        ctx.translate(cx, cy);
+        ctx.translate(cx, cy)
 
         if (flippedD) {
-          ctx.rotate((90 * Math.PI) / 180);
-          ctx.scale(-1, 1);
+          ctx.rotate((90 * Math.PI) / 180)
+          ctx.scale(-1, 1)
         }
         if (flippedH) {
-          ctx.scale(-1, 1);
+          ctx.scale(-1, 1)
         }
         if (flippedV) {
-          ctx.scale(1, -1);
+          ctx.scale(1, -1)
         }
 
-        ctx.translate(-this.tSize.x / 2, -this.tSize.y / 2);
+        ctx.translate(-this.tSize.x / 2, -this.tSize.y / 2)
 
         ctx.drawImage(
           tile.img,
@@ -207,168 +206,164 @@ export class mapManager {
           0,
           this.tSize.x,
           this.tSize.y
-        );
+        )
 
-        ctx.restore();
+        ctx.restore()
       }
     }
   }
 
-  // ---------- тайл / тайлсет ----------
+  // работа с тайлами/тайлсетами
   getTile(tileIndex) {
-    const tileset = this.getTileset(tileIndex);
-    if (!tileset) return null;
+    const tileset = this.getTileset(tileIndex)
+    if (!tileset) return null
 
-    const id = tileIndex - tileset.firstgid;
-    const x = id % tileset.xCount;
-    const y = Math.floor(id / tileset.xCount);
+    const id = tileIndex - tileset.firstgid
+    const x = id % tileset.xCount
+    const y = Math.floor(id / tileset.xCount)
 
     return {
       img: tileset.image,
       px: x * this.tSize.x,
       py: y * this.tSize.y,
-    };
+    }
   }
 
   getTileset(tileIndex) {
     for (let i = this.tilesets.length - 1; i >= 0; i--) {
       if (this.tilesets[i].firstgid <= tileIndex) {
-        return this.tilesets[i];
+        return this.tilesets[i]
       }
     }
-    return null;
+    return null
   }
 
-  // ---------- видимость ----------
+  // проверка, попадает ли тайл в окно камеры
   isVisible(x, y, width, height) {
-    if (x + width  < this.view.x)            return false;
-    if (y + height < this.view.y)            return false;
-    if (x > this.view.x + this.view.w)       return false;
-    if (y > this.view.y + this.view.h)       return false;
-    return true;
+    if (x + width  < this.view.x)            return false
+    if (y + height < this.view.y)            return false
+    if (x > this.view.x + this.view.w)       return false
+    if (y > this.view.y + this.view.h)       return false
+    return true
   }
 
-  // ---------- objectgroup-слои / сущности ----------
-  parseEntities() {
-    // ждём, пока карта и тайлы реально загрузились
-    if (!this.imgLoaded || !this.jsonLoaded || !this.gameManager) {
-      setTimeout(() => this.parseEntities(), 100);
-      return;
-    }
+  // создание игровых объектов из object-слоёв
 
-    const gm = this.gameManager;
-    if (!gm.factory) return;
+parseEntities() {
+  // ждём, пока карта и тайлы загрузятся
+  if (!this.imgLoaded || !this.jsonLoaded || !this.gameManager) {
+    setTimeout(() => this.parseEntities(), 100)
+    return
+  }
 
-    // очищаем кеш объектов и наполняем заново уже "живыми" сущностями
-    this.objects = [];
+  const gm = this.gameManager
+  if (!gm.factory) return
 
-    for (const layer of this.mapData.layers) {
-      if (layer.type !== 'objectgroup') continue;
+  // очищаем старый список объектов
+  this.objects = []
 
-      const layerOffsetX = layer.offsetx || 0;
-      const layerOffsetY = layer.offsety || 0;
+  for (const layer of this.mapData.layers) {
+    if (layer.type !== 'objectgroup') continue
 
-      const entities = layer.objects || [];
+    const layerOffsetX = layer.offsetx || 0
+    const layerOffsetY = layer.offsety || 0
+    const entities = layer.objects || []
 
-      for (const e of entities) {
-        try {
-          // пробуем сначала по type, потом по name
-          const keyType = e.type || '';
-          const keyName = e.name || '';
+    for (const e of entities) {
+      try {
+        const keyName = e.name || ''   // Enemy1 / Enemy2 / Enemy3 / Key / Exit / Barrier ...
+        const keyType = e.type || ''   // Enemy / Key / Exit / Barrier ...
 
-          let EntityClass = gm.factory[keyType];
-          if (!EntityClass && keyName) {
-            EntityClass = gm.factory[keyName];
-          }
+        // 1) сначала ищем по name (Enemy1), потом по type (Enemy),
+        // 2) потом пробуем те же варианты в нижнем регистре
+        let EntityClass =
+          (keyName && gm.factory[keyName]) ||
+          (keyType && gm.factory[keyType]) ||
+          (keyName && gm.factory[keyName.toLowerCase()]) ||
+          (keyType && gm.factory[keyType.toLowerCase()])
 
-          if (!EntityClass) {
-            console.warn('Нет класса для объекта карты:', e);
-            continue;
-          }
-
-          const obj = new EntityClass();
-
-          // имя из Tiled
-          if (e.name) {
-            obj.name = e.name;
-            if ('spriteName' in obj) {
-              obj.spriteName = e.name;
-            }
-          } else if (e.type) {
-            obj.name = e.type;
-          }
-
-          // координаты с учётом offset слоя
-          const isTileObject = typeof e.gid === 'number';
-
-          const baseX = e.x + layerOffsetX;
-          const baseY = e.y + layerOffsetY;
-
-          obj.pos_x = baseX;
-          obj.pos_y = isTileObject ? baseY - e.height : baseY;
-
-          // размеры хитбокса (если в Tiled заданы)
-          if (e.width)  obj.size_x = e.width;
-          if (e.height) obj.size_y = e.height;
-
-          // ссылки на менеджеры
-          obj.gameManager = gm;
-          obj.spriteManager = gm.spriteManager;
-          if ('physicManager' in obj) {
-            obj.physicManager = gm.physicManager;
-          }
-
-          // сохраняем
-          gm.entities.push(obj);
-          this.objects.push(obj);
-        } catch (err) {
-          console.error('Ошибка создания сущности из объекта карты', e, err);
+        if (!EntityClass) {
+          console.warn('Нет класса для объекта карты:', e)
+          continue
         }
+
+        const obj = new EntityClass()
+
+        // имя объекта внутри игры
+        obj.name = keyName || keyType || obj.name || ''
+
+        // спрайт — тоже сначала по name, потом по type
+        if ('spriteName' in obj) {
+          if (keyName) {
+            obj.spriteName = keyName
+          } else if (keyType) {
+            obj.spriteName = keyType
+          }
+        }
+
+        // координаты с учётом смещения слоя
+        const isTileObject = typeof e.gid === 'number'
+        const baseX = e.x + layerOffsetX
+        const baseY = e.y + layerOffsetY
+
+        obj.pos_x = baseX
+        obj.pos_y = isTileObject ? baseY - e.height : baseY
+
+        // хитбоксы если заданы в Tiled
+        if (e.width) obj.size_x = e.width
+        if (e.height) obj.size_y = e.height
+
+        // ссылки на менеджеры
+        obj.gameManager = gm
+        obj.spriteManager = gm.spriteManager
+        if ('physicManager' in obj) {
+          obj.physicManager = gm.physicManager
+        }
+
+        gm.entities.push(obj)
+        this.objects.push(obj)
+      } catch (err) {
+        console.error('Ошибка создания сущности из объекта карты', e, err)
       }
     }
   }
+}
 
-  // ---------- получить gid тайла по мировым координатам ----------
+
+
+  // вернуть gid тайла по мировым координатам (нужно для коллизий)
   getTilesetId(x, y) {
-    if (!this.tLayer) return 0;
+    if (!this.tLayer) return 0
 
-    const tileX = Math.floor(x / this.tSize.x);
-    const tileY = Math.floor(y / this.tSize.y);
+    const tileX = Math.floor(x / this.tSize.x)
+    const tileY = Math.floor(y / this.tSize.y)
 
     if (tileX < 0 || tileX >= this.xCount || tileY < 0 || tileY >= this.yCount) {
-      return 0;
+      return 0
     }
 
-    const idx = tileY * this.xCount + tileX;
-    return this.tLayer.data[idx] & GID_MASK;
+    const idx = tileY * this.xCount + tileX
+    return this.tLayer.data[idx] & GID_MASK
   }
 
-  // ---------- центрировать камеру ----------
+  // центрируем камеру на точке (x, y)
   centerAt(x, y) {
     // по горизонтали
     if (x < this.view.w / 2) {
-      this.view.x = 0;
+      this.view.x = 0
     } else if (x > this.mapSize.x - this.view.w / 2) {
-      this.view.x = this.mapSize.x - this.view.w;
+      this.view.x = this.mapSize.x - this.view.w
     } else {
-      this.view.x = x - this.view.w / 2;
+      this.view.x = x - this.view.w / 2
     }
 
     // по вертикали
     if (y < this.view.h / 2) {
-      this.view.y = 0;
+      this.view.y = 0
     } else if (y > this.mapSize.y - this.view.h / 2) {
-      this.view.y = this.mapSize.y - this.view.h;
+      this.view.y = this.mapSize.y - this.view.h
     } else {
-      this.view.y = y - this.view.h / 2;
+      this.view.y = y - this.view.h / 2
     }
-  }
-
-  getObjectsByType(type) {
-    return (this.objects || []).filter((o) => o.type === type);
-  }
-
-  getObjectsByName(name) {
-    return (this.objects || []).filter((o) => o.name === name);
   }
 }

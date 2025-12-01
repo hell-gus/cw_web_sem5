@@ -1,15 +1,12 @@
 // managers/physicManager.js
 
-const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
-const FLIPPED_VERTICALLY_FLAG = 0x40000000
-const FLIPPED_DIAGONALLY_FLAG = 0x20000000
+// в старшем бите gid могут лежать флаги, поэтому маска
 const GID_MASK = 0x1FFFFFFF
 
-// только слой Collision
+// слой с коллизиями
 const COLLISION_LAYER_NAMES = ['Collision']
 
-// тайлсеты, которые по умолчанию считаем "твёрдыми" (стены),
-// если на тайле нет collides:false
+// тайлсеты, которые считаем стенами по умолчанию
 const SOLID_TILESET_NAMES = [
   'TX Tileset Wall',
   'TX Struct',
@@ -21,7 +18,7 @@ export class PhysicManager {
     this.gameManager = null
     this.mapManager = null
 
-    // кэш больше НЕ используем
+    // если включить в true — поверх карты рисуются красные зоны коллизий
     this.debugDraw = false
   }
 
@@ -30,12 +27,10 @@ export class PhysicManager {
     this.mapManager = mapManager
   }
 
-  // заглушка — вдруг где-то вызывается
-  resetCollisionCache() {
-    // больше ничего не кешируем, оставляем пустым
-  }
+  // на будущее: сейчас кэш не используем
+  resetCollisionCache() {}
 
-  // каждый раз берём актуальный список collision-слоёв из текущей карты
+  // берём все тайловые слои с именем Collision
   getCollisionLayers() {
     if (!this.mapManager || !this.mapManager.mapData) return []
     return this.mapManager.mapData.layers.filter(
@@ -43,6 +38,7 @@ export class PhysicManager {
     )
   }
 
+  // находим тайлсет, которому принадлежит gid
   getTilesetByGid(gid) {
     if (!this.mapManager || !this.mapManager.mapData) return null
     const tilesets = this.mapManager.mapData.tilesets
@@ -54,7 +50,7 @@ export class PhysicManager {
     return chosen
   }
 
-  // найти описание тайла по localId
+  // ищем описание тайла внутри тайлсета
   getTileDef(ts, localId) {
     if (!ts || !Array.isArray(ts.tiles)) return null
     for (const tile of ts.tiles) {
@@ -63,7 +59,7 @@ export class PhysicManager {
     return null
   }
 
-  // вернуть МИРОВЫЕ прямоугольники коллизии для одного тайла
+  // мировые прямоугольники коллизии для одного тайла
   getCollRectsForTile(rawGid, tileX, tileY) {
     if (!rawGid) return null
     const gid = rawGid & GID_MASK
@@ -79,7 +75,7 @@ export class PhysicManager {
     const localId = gid - ts.firstgid
     const tileDef = this.getTileDef(ts, localId)
 
-    // 1) objectgroup с collides/collieds = true → берём ЭТИ прямоугольники
+    // 1) objectgroup с объектами, у которых collides/collieds = true
     if (tileDef && tileDef.objectgroup && Array.isArray(tileDef.objectgroup.objects)) {
       const rects = []
 
@@ -114,7 +110,7 @@ export class PhysicManager {
       }
     }
 
-    // 2) свойства collides / collides:false / collides:true
+    // 2) свойства collides:true / collides:false на самом тайле
     let hasCollidesFalse = false
     let hasCollidesTrue = false
     if (tileDef && Array.isArray(tileDef.properties)) {
@@ -128,12 +124,12 @@ export class PhysicManager {
       }
     }
 
-    // collides:false → нет коллизии, даже если тайлсет "твёрдый"
+    // collides:false — значит стена отключена даже в "твёрдом" тайлсете
     if (hasCollidesFalse) {
       return null
     }
 
-    // 3) collides:true ИЛИ тайл из "твёрдого" тайлсета → весь тайл 32x32 стена
+    // 3) collides:true или тайл из "твёрдого" тайлсета — стена на весь тайл
     const isSolidTileset = SOLID_TILESET_NAMES.includes(ts.name)
     if (hasCollidesTrue || isSolidTileset) {
       return [
@@ -146,10 +142,11 @@ export class PhysicManager {
       ]
     }
 
-    // иначе — нет коллизии
+    // иначе тайл проходимый
     return null
   }
 
+  // проверяем, стена ли в точке worldX/worldY
   isSolidAt(worldX, worldY) {
     if (!this.mapManager || !this.mapManager.mapData) return false
 
@@ -163,7 +160,7 @@ export class PhysicManager {
     const tileX = Math.floor(worldX / tSize.x)
     const tileY = Math.floor(worldY / tSize.y)
 
-    // вне карты — стена
+    // всё, что вне карты, считаем стеной
     if (tileX < 0 || tileY < 0 || tileX >= xCount || tileY >= yCount) {
       return true
     }
@@ -195,7 +192,7 @@ export class PhysicManager {
     return false
   }
 
-  // рисуем красным реальные прямоугольники коллизий
+  // подсветка коллизий красным (для отладки)
   drawDebugColliders(ctx) {
     if (!ctx || !this.mapManager || !this.mapManager.mapData) return
 
@@ -250,8 +247,9 @@ export class PhysicManager {
     ctx.restore()
   }
 
+  // проверяем прямоугольник на пересечение со стенами
   isRectColliding(x, y, w, h) {
-    // если карта ещё не загружена – считаем, что всё проходимо
+    // пока карта не загрузилась — считаем, что всё свободно
     if (
       !this.mapManager ||
       !this.mapManager.mapData ||
@@ -279,7 +277,7 @@ export class PhysicManager {
       }
     }
 
-    // страховочные точки по нижней и правой границе
+    // доп. точки по нижней и правой границе
     for (let px = left; px <= right; px += stepX) {
       if (this.isSolidAt(px, bottom)) return true
     }
@@ -294,6 +292,7 @@ export class PhysicManager {
     return !this.isRectColliding(x, y, w, h)
   }
 
+  // простое движение с учётом стен
   update(obj, dt) {
     if (!obj) return
 
@@ -307,6 +306,7 @@ export class PhysicManager {
     let newX = obj.pos_x
     let newY = obj.pos_y
 
+    // сначала двигаемся по X
     if (vx !== 0) {
       const tryX = newX + vx
       if (this.isRectFree(tryX, newY, obj.size_x, obj.size_y)) {
@@ -314,6 +314,7 @@ export class PhysicManager {
       }
     }
 
+    // потом по Y
     if (vy !== 0) {
       const tryY = newY + vy
       if (this.isRectFree(newX, tryY, obj.size_x, obj.size_y)) {

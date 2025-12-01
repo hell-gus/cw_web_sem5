@@ -1,64 +1,48 @@
 // managers/EventsManager.js
 export class EventsManager {
   constructor() {
-    // keyCode → имя действия
     this.bind = {
-      87: 'up',    // W
-      65: 'left',  // A
-      83: 'down',  // S
-      68: 'right', // D
-      69: 'break',     // E — действие (ломать Barrier)
+      87: 'up',     // W
+      65: 'left',   // A
+      83: 'down',   // S
+      68: 'right',  // D
+      69: 'break',  // E — ломать преграду
     }
 
-    // активные действия
+    // сюда кладутся активные действия (true/false)
     this.action = {}
 
-    this.canvas = null
-
-    // байндинг методов, чтобы this внутри них был EventsManager
+    // привязка методы
     this.onKeyDown = this.onKeyDown.bind(this)
     this.onKeyUp = this.onKeyUp.bind(this)
-    this.onMouseDown = this.onMouseDown.bind(this)
-    this.onMouseUp = this.onMouseUp.bind(this)
   }
 
-  setup(canvas) {
-    this.canvas = canvas
-    if (!canvas) return
-
-    // мышь — вдруг пригодится потом (сейчас можно оставить пустыми обработчики)
-    canvas.addEventListener('mousedown', this.onMouseDown)
-    canvas.addEventListener('mouseup', this.onMouseUp)
-
-    // клавиатура
+  // подключение обработчиков 
+  setup() {
     document.body.addEventListener('keydown', this.onKeyDown)
     document.body.addEventListener('keyup', this.onKeyUp)
   }
 
+  // когда кнопку нажали
   onKeyDown(event) {
     const code = event.keyCode || event.which
     const action = this.bind[code]
+
     if (action) {
       this.action[action] = true
-      // чтобы не было странных скроллов/шорткатов
+      // чтобы страница не скроллилась стрелками и т.п.
       event.preventDefault()
     }
   }
 
+  // когда кнопку отпустили
   onKeyUp(event) {
     const code = event.keyCode || event.which
     const action = this.bind[code]
+
     if (action) {
       this.action[action] = false
       event.preventDefault()
     }
-  }
-
-  onMouseDown(_event) {
-    // оставлено на будущее
-  }
-
-  onMouseUp(_event) {
-    // оставлено на будущее
   }
 }
