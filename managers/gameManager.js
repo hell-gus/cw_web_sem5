@@ -10,6 +10,7 @@ import { Bonus } from '../object/Bonus.js'
 import { Key } from '../object/Key.js'
 import { Enemy1, Enemy2, Enemy3 } from '../object/Enemy.js'
 import { Exit } from '../object/Exit.js'
+import { Barrier } from '../object/Barrier.js'   
 
 export class GameManager {
   constructor() {
@@ -195,6 +196,10 @@ export class GameManager {
 
     this.factory['Exit'] = Exit
     this.factory['exit'] = Exit
+
+    // BARRIER (кусты-преграды)
+    this.factory['Barrier'] = Barrier
+    this.factory['barrier'] = Barrier
 
     // ---------- создаём игрока (позицию задаст initSpawnFromMap) ----------
     const p = new Player()

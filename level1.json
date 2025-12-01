@@ -1,12 +1,4 @@
 { "compressionlevel":-1,
- "editorsettings":
-    {
-     "export":
-        {
-         "format":"json",
-         "target":"level1.json"
-        }
-    },
  "height":30,
  "infinite":false,
  "layers":[
@@ -136,7 +128,6 @@
         {
          "draworder":"topdown",
          "id":16,
-         "locked":true,
          "name":"\u0421\u043b\u043e\u0439 \u043e\u0431\u044a\u0435\u043a\u0442\u043e\u0432 1",
          "objects":[
                 {
@@ -378,6 +369,175 @@
                  "width":32,
                  "x":928,
                  "y":160
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":163,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":160,
+                 "y":64
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":164,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":192,
+                 "y":64
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":165,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":224,
+                 "y":64
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":166,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":224,
+                 "y":672
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":167,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":192,
+                 "y":672
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":168,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":448,
+                 "y":736
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":169,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":448,
+                 "y":768
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":170,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":448,
+                 "y":800
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":171,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":448,
+                 "y":480
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":172,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":448,
+                 "y":512
+                },
+            
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":173,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":896,
+                 "y":480
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":174,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":928,
+                 "y":480
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":175,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":416,
+                 "y":160
+                }, 
+                {
+                 "gid":256,
+                 "height":32,
+                 "id":176,
+                 "name":"Barrier",
+                 "rotation":0,
+                 "type":"Barrier",
+                 "visible":true,
+                 "width":32,
+                 "x":416,
+                 "y":192
                 }],
          "offsetx":0,
          "offsety":32,
@@ -435,7 +595,7 @@
          "y":0
         }],
  "nextlayerid":18,
- "nextobjectid":163,
+ "nextobjectid":177,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.11.2",

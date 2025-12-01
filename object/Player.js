@@ -22,7 +22,7 @@ export class Player extends Entity {
     // флаг смерти
     this.isDead = false
 
-    // "неуязвимость" после удара, чтобы не сносило все жизни за один кадр
+    // "неуязвимость" после удара
     this.invulnTimer = 0        // сколько ещё секунд нельзя получать урон
     this.invulnDuration = 1.0   // 1 секунда неуязвимости после удара
 
@@ -46,6 +46,11 @@ export class Player extends Entity {
 
     // направление взгляда: 1 — вправо, -1 — влево
     this.facing = 1
+
+    // --- работа с кустами (Barrier) ---
+    this.breakTarget = null      // какой барьер сейчас ломаем
+    this.breakProgress = 0       // накопленное время "ломания"
+    this.breakTime = 1.5         // сколько секунд нужно держать E, чтобы разрушить куст
   }
 
   update(dt) {
@@ -93,12 +98,120 @@ export class Player extends Entity {
       if (this.invulnTimer < 0) this.invulnTimer = 0
     }
 
-    // движение + столкновения со стенами
+    const gm = this.gameManager
+
+    // --- движение + тайловые стены ---
+    const oldX = this.pos_x
+    const oldY = this.pos_y
+
     this.physicManager.update(this, dt)
 
-    // столкновения с другими сущностями
-    if (this.gameManager && Array.isArray(this.gameManager.entities)) {
-      for (const e of this.gameManager.entities) {
+    // --- кусты-барьеры: блокируют движение, если не расчищены ---
+    let blockedByBarrier = null
+    if (gm && Array.isArray(gm.entities)) {
+      for (const e of gm.entities) {
+        if (!e || e === this) continue
+
+        const isBarrier =
+          e.name === 'Barrier' ||
+          e.type === 'Barrier'
+
+        if (!isBarrier) continue
+
+        // простой AABB-пересечение
+        const intersect =
+          this.pos_x < e.pos_x + e.size_x &&
+          this.pos_x + this.size_x > e.pos_x &&
+          this.pos_y < e.pos_y + e.size_y &&
+          this.pos_y + this.size_y > e.pos_y
+
+        if (intersect) {
+          blockedByBarrier = e
+          break
+        }
+      }
+    }
+
+    const wantBreak = !!a.break
+
+    // если упёрлись в барьер и не ломаем его — откатываем позицию
+    if (blockedByBarrier && !wantBreak) {
+      this.pos_x = oldX
+      this.pos_y = oldY
+    }
+
+    // --- логика "расчищения" кустов ---
+    if (wantBreak && gm && Array.isArray(gm.entities)) {
+      // ищем ближайший барьер рядом с котом
+      let nearest = null
+      let nearestDist2 = Infinity
+
+      const cx = this.pos_x + this.size_x / 2
+      const cy = this.pos_y + this.size_y / 2
+      const maxDist = 40 // радиус взаимодействия, пикселей
+      const maxDist2 = maxDist * maxDist
+
+      for (const e of gm.entities) {
+        if (!e || e === this) continue
+
+        const isBarrier =
+          e.name === 'Barrier' ||
+          e.type === 'Barrier'
+
+        if (!isBarrier) continue
+
+        const ex = e.pos_x + (e.size_x || 32) / 2
+        const ey = e.pos_y + (e.size_y || 32) / 2
+
+        const dx = ex - cx
+        const dy = ey - cy
+        const d2 = dx * dx + dy * dy
+
+        if (d2 <= maxDist2 && d2 < nearestDist2) {
+          nearest = e
+          nearestDist2 = d2
+        }
+      }
+
+      if (!nearest) {
+        // рядом нет барьера — сбрасываем процесс ломания
+        this.breakTarget = null
+        this.breakProgress = 0
+      } else {
+        // если новый барьер — начинаем заново
+        if (this.breakTarget !== nearest) {
+          this.breakTarget = nearest
+          this.breakProgress = 0
+        }
+
+        // держим кота на месте, пока он ломает куст
+        this.pos_x = oldX
+        this.pos_y = oldY
+
+        // накапливаем время
+        this.breakProgress += dt
+
+        if (this.breakProgress >= this.breakTime) {
+          // куст расчищен
+          if (gm && typeof gm.kill === 'function') {
+            gm.kill(this.breakTarget)
+          }
+          this.breakTarget = null
+          this.breakProgress = 0
+
+          // здесь можно добавить звук разрушения куста, если нужен:
+          // if (gm && gm.soundManager) gm.soundManager.play('barrier_break')
+        }
+      }
+    } else {
+      // клавиша E не нажата — ломание не идёт
+      this.breakTarget = null
+      this.breakProgress = 0
+    }
+
+    // --- столкновения с другими сущностями (ключи, враги, бонусы, выход) ---
+    if (gm && Array.isArray(gm.entities)) {
+      for (const e of gm.entities) {
         if (!e || e === this) continue
 
         const intersect =
