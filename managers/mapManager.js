@@ -121,20 +121,38 @@ export class mapManager {
     this.jsonLoaded = true;
   }
 
+  // ---------- проверка, является ли слой "над объектами" ----------
+  isAboveLayer(layer) {
+    const props = layer.properties || [];
+    return props.some((p) => p.name === 'above' && p.value === true);
+  }
+
   // ---------- отрисовка ----------
-  draw(ctx) {
+  // mode:
+  //  - 'all'        — рисуем все слои (как раньше)
+  //  - 'background' — только слои без свойства above=true
+  //  - 'foreground' — только слои, где above=true
+  draw(ctx, mode = 'all') {
     if (!this.imgLoaded || !this.jsonLoaded) {
-      setTimeout(() => this.draw(ctx), 100);
+      setTimeout(() => this.draw(ctx, mode), 100);
       return;
     }
 
-    ctx.clearRect(0, 0, this.view.w, this.view.h);
+    if (mode === 'all' || mode === 'background') {
+      // очищаем кадр только один раз — при фоновом/полном рендере
+      ctx.clearRect(0, 0, this.view.w, this.view.h);
+    }
 
     const tileLayers = this.mapData.layers.filter(
       (layer) => layer.type === 'tilelayer' && layer.visible
     );
 
     for (const layer of tileLayers) {
+      const above = this.isAboveLayer(layer);
+
+      if (mode === 'background' && above) continue;
+      if (mode === 'foreground' && !above) continue;
+
       const data = layer.data;
 
       for (let i = 0; i < data.length; i++) {

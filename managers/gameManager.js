@@ -111,11 +111,9 @@ export class GameManager {
 
     // ---------- музыка текущего уровня ----------
     if (this.soundManager) {
-      // выключаем старый фон
       this.soundManager.stop('level1')
       this.soundManager.stop('level2')
 
-      // включаем новый фон
       if (this.level === 1) {
         this.soundManager.play('level1')
       } else if (this.level === 2) {
@@ -157,7 +155,6 @@ export class GameManager {
     // ---------- спрайты ----------
     this.spriteManager.loadAtlas('./img/sprites.json', './img/sprites.png')
 
-    // атлас кота (анимация игрока) из конфига
     if (config && config.atlasJson && config.atlasImg) {
       this.spriteManager.loadAtlas(config.atlasJson, config.atlasImg)
     }
@@ -271,7 +268,6 @@ export class GameManager {
   unlockExit() {
     this.exitUnlocked = true
     console.log('Выход разблокирован')
-    // отдельный звук разблокировки не делаем — по заданию только level_complete / win
   }
 
   handleExitTouch(exitEntity) {
@@ -289,13 +285,10 @@ export class GameManager {
   }
 
   // ---- Сохранение рекорда и переход на страницу рекордов ----
-    // ---- Сохранение рекорда и переход на страницу рекордов ----
-    // ---- Сохранение рекорда и переход на страницу рекордов ----
   finishGame() {
     if (this.gameFinished) return
     this.gameFinished = true
 
-    // просто глушим фон, но win здесь не проигрываем
     if (this.soundManager) {
       this.soundManager.stop('level1')
       this.soundManager.stop('level2')
@@ -332,22 +325,18 @@ export class GameManager {
       console.error('Не удалось сохранить рекорд', e)
     }
 
-    // сразу уходим на таблицу рекордов
     const base = window.location.href.split('#')[0].split('?')[0]
     const dir = base.substring(0, base.lastIndexOf('/') + 1)
     window.location.href = dir + 'records.html'
   }
 
-
   goToNextLevel() {
-    // если следующего уровня нет — считаем, что игра пройдена
     if (!this.nextLevelConfig) {
       console.log('Последний уровень пройден, переходим к таблице рекордов')
       this.finishGame()
       return
     }
 
-    // есть второй уровень: играем короткий level_complete
     if (this.soundManager) {
       this.soundManager.play('level_complete')
     }
@@ -503,9 +492,10 @@ export class GameManager {
       this.mapManager.centerAt(this.player.pos_x, this.player.pos_y)
     }
 
-    this.mapManager.draw(this.ctx)
+    // 1. фоновые тайловые слои (без above=true)
+    this.mapManager.draw(this.ctx, 'background')
 
-    // если подсветка стен не нужна — можно закомментировать блок ниже:
+    // 2. при необходимости — отладочная подсветка стен
     if (
       this.physicManager &&
       this.physicManager.debugDraw &&
@@ -514,12 +504,17 @@ export class GameManager {
       this.physicManager.drawDebugColliders(this.ctx)
     }
 
+    // 3. кот, враги, ключи, тортики и т.п.
     this.entities.forEach((e) => {
       if (e && typeof e.draw === 'function') {
         e.draw(this.ctx)
       }
     })
 
+    // 4. верхние тайловые слои (украшения с above=true)
+    this.mapManager.draw(this.ctx, 'foreground')
+
+    // 5. HUD поверх всего
     this.drawHUD()
   }
 
